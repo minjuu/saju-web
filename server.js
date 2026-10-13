@@ -6,8 +6,8 @@ const { createClient } = require('@supabase/supabase-js');
 const {
   PORT = 3000,
   GEMINI_API_KEY,
-  GEMINI_MODEL = 'gemini-flash-latest',
-  GEMINI_FALLBACK_MODEL = 'gemini-flash-lite-latest',
+  GEMINI_MODEL = 'gemini-flash-lite-latest',
+  GEMINI_FALLBACK_MODEL = 'gemini-flash-latest',
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY,
@@ -126,9 +126,6 @@ const TOPICS = {
   total: '## 타고난 성향 / ## 오행 균형과 보완법 / ## 재물운 / ## 직업·적성 / ## 연애·관계 / ## 건강 / ## 대운 흐름 / ## 올해의 운세',
   year: `## ${new Date().getFullYear()}년 총운 / ## 상반기 / ## 하반기 / ## 월별 흐름(1~12월, 각 한두 문장) / ## 주의할 점`,
   love: '## 연애 성향 / ## 잘 맞는 상대 / ## 관계에서 주의할 점 / ## 올해의 연애운',
-  money: '## 재물 성향 / ## 돈이 들어오는 방식 / ## 지출·투자 습관 / ## 올해의 재물운',
-  career: '## 적성과 강점 / ## 잘 맞는 직무·업종 / ## 일하는 방식 / ## 올해의 직업운',
-  people: '## 대인관계 성향 / ## 도움이 되는 인연 / ## 주의할 관계 / ## 가족·동료와의 관계 / ## 올해의 대인관계운',
 };
 
 // 혼잡(503)·한도(429) 응답이면 잠시 후 재시도하고, 그래도 안 되면 대체 모델로 넘어간다
@@ -138,7 +135,12 @@ async function requestGemini(system, input, signal) {
   for (const model of [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) {
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt) await sleep(2000);
-      const r = await fetch(
+      // 혼잡할 때 응답 없이 멈추는 경우가 있어 20초 안에 응답이 시작되지 않으면 끊고 다음 시도로 넘어간다
+      const timeout = new AbortController();
+      const timer = setTimeout(() => timeout.abort(), 20000);
+      let r;
+      try {
+        r = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`,
         {
           method: 'POST',
@@ -147,9 +149,17 @@ async function requestGemini(system, input, signal) {
             systemInstruction: { parts: [{ text: system }] },
             contents: [{ role: 'user', parts: [{ text: input }] }],
           }),
-          signal,
+          signal: AbortSignal.any([signal, timeout.signal]),
         },
-      );
+        );
+      } catch (e) {
+        if (signal.aborted || !timeout.signal.aborted) throw e;
+        last = Object.assign(new Error(`${model} 응답 시간 초과`), { busy: true });
+        console.warn(`Gemini ${model} 시간 초과, 다음 모델로`);
+        break;
+      } finally {
+        clearTimeout(timer); // 응답이 시작된 뒤에는 스트리밍이 길어져도 끊지 않는다
+      }
       if (r.ok) return r;
       last = Object.assign(new Error(`${model} ${r.status} ${await r.text()}`), { busy: [429, 503].includes(r.status) });
       if (!last.busy) throw last;

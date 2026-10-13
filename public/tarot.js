@@ -45,11 +45,8 @@
     $('#tarotError').textContent = '';
   }
 
-  const face = c => {
-    const d = DECK[c.id];
-    return `<div class="tc-face${c.reversed ? ' rev' : ''}${d.major ? ' major' : ''}">
-      <span class="tc-top">${d.top}</span><span class="tc-glyph">${d.glyph}</span><span class="tc-name">${d.name}</span></div>`;
-  };
+  // 카드 이미지: Rider-Waite-Smith (1909, 퍼블릭 도메인) — Wikimedia Commons
+  const face = c => `<div class="tc-face${c.reversed ? ' rev' : ''}"><img src="/tarot/${c.id}.jpg" alt="${DECK[c.id].name}"></div>`;
 
   function render() {
     const sp = SPREADS[spread];

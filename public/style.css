@@ -39,7 +39,7 @@ nav .who { color: var(--ink); max-width: 140px; overflow: hidden; text-overflow:
 .hero-ctrl { display: flex; align-items: center; gap: 12px; margin-top: 26px; font-size: 13px; opacity: .8; font-variant-numeric: tabular-nums; }
 .hero-ctrl button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #ffffff40; background: none; color: inherit; cursor: pointer; }
 .hero-ctrl button:hover { background: #ffffff14; }
-.hero-rabbit { position: relative; z-index: 1; width: 150px; height: 150px; flex: none; background: var(--accent-ink); border-radius: 50%; padding: 18px; transform: rotate(-6deg); }
+.hero-rabbit { position: relative; z-index: 1; width: 140px; height: 140px; flex: none; transform: rotate(-6deg); }
 
 /* 풀이 종류 */
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 40px 0 14px; }
@@ -69,7 +69,7 @@ nav .who { color: var(--ink); max-width: 140px; overflow: hidden; text-overflow:
 .topic-mark { flex: none; width: 60px; height: 60px; border-radius: 16px; display: grid; place-items: center; font-size: 28px; font-weight: 700; background: var(--tone); color: var(--deep); }
 .reading-head h1 { margin: 0; font-size: 24px; }
 .reading-head p { margin: 2px 0 0; color: var(--muted); }
-#view-reading .card { max-width: 720px; }
+#view-reading, #view-tarot { max-width: 720px; margin: 0 auto; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin-bottom: 16px; }
 .card h2 { font-size: 17px; font-weight: 700; margin: 0 0 18px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 16px; }
@@ -149,11 +149,12 @@ footer { text-align: center; font-size: 12px; color: var(--muted); padding: 24px
   .logo img { width: 32px; height: 32px; }
   .hero { padding: 28px 22px; border-radius: 20px; }
   .hero::after { font-size: 120px; right: -10px; }
-  .hero-rabbit { position: absolute; right: 16px; top: 18px; width: 64px; height: 64px; padding: 8px; }
+  .hero-rabbit { position: absolute; right: 16px; top: 18px; width: 60px; height: 60px; }
   .slide h2 { font-size: 24px; padding-right: 72px; }
   .slide p { font-size: 14px; }
   .section-head span { display: none; }
   .cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cards > :first-child { grid-column: span 2; min-height: 140px; }
   .topic-card { padding: 16px; min-height: 160px; border-radius: 16px; }
     .topic-glyph { width: 38px; height: 38px; font-size: 20px; }
   .topic-card b { font-size: 16px; margin-top: 16px; }
@@ -165,13 +166,12 @@ footer { text-align: center; font-size: 12px; color: var(--muted); padding: 24px
 
 /* 타로 */
 .c7 { --tone: #e6dccd; --deep: #5b4a3a; }
-.tarot-box { max-width: 720px; }
 .tarot-box .field { margin: 0 0 20px; }
 .slots { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 120px)); justify-content: center; gap: 20px; }
 .slot { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .slot-label { font-size: 13px; color: var(--muted); }
 .slot-name { font-size: 14px; font-weight: 600; }
-.tcard { position: relative; width: 100%; aspect-ratio: 5 / 8; perspective: 800px; }
+.tcard { position: relative; width: 100%; aspect-ratio: 240 / 410; perspective: 800px; }
 .tcard > div { position: absolute; inset: 0; border-radius: 10px; backface-visibility: hidden; transition: transform .6s ease; }
 .tc-back, .dcard {
   background: var(--accent);
@@ -180,23 +180,19 @@ footer { text-align: center; font-size: 12px; color: var(--muted); padding: 24px
 }
 .tcard:not(.flipped) .tc-back { border: 1.5px dashed var(--line); background: none; box-shadow: none; }
 .tcard.flipped .tc-back { transform: rotateY(180deg); }
-.tc-face { transform: rotateY(-180deg); background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 6px; color: var(--accent); }
+.tc-face { transform: rotateY(-180deg); overflow: hidden; background: var(--card); box-shadow: 0 4px 14px #26231f26; }
+.tc-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tcard.flipped .tc-face { transform: rotateY(0); }
 .tcard.flipped .tc-face.rev { transform: rotate(180deg); }
 .tcard.anim .tc-face { animation: flip .6s ease; }
 .tcard.anim .tc-face.rev { animation: flip-rev .6s ease; }
 @keyframes flip { from { transform: rotateY(-180deg); } }
 @keyframes flip-rev { from { transform: rotateY(-180deg) rotate(180deg); } }
-.tc-face.major { background: #f6efe1; }
-.tc-top { font-size: 12px; font-weight: 600; letter-spacing: 1px; }
-.tc-glyph { font-size: 34px; font-weight: 700; line-height: 1; }
-.tc-face.major .tc-glyph { font-size: 26px; letter-spacing: 1px; }
-.tc-name { font-size: 12px; font-weight: 600; word-break: keep-all; text-align: center; }
 .tarot-guide { text-align: center; color: var(--muted); font-size: 14px; margin: 22px 0 12px; }
 .deck { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; }
-.dcard { aspect-ratio: 5 / 8; border: 0; border-radius: 6px; cursor: pointer; transition: transform .15s, opacity .2s; }
+.dcard { aspect-ratio: 240 / 410; border: 0; border-radius: 6px; cursor: pointer; transition: transform .15s, opacity .2s; }
 .dcard:hover:not(:disabled) { transform: translateY(-4px); }
-.dcard:disabled { cursor: default; opacity: .55; }
+.dcard:disabled { cursor: default; opacity: .35; }
 .dcard.gone { opacity: 0; pointer-events: none; }
 .tarot-actions { display: flex; gap: 10px; margin-top: 20px; }
 .tarot-actions .primary { margin: 0; flex: 1; }
@@ -206,8 +202,5 @@ footer { text-align: center; font-size: 12px; color: var(--muted); padding: 24px
 #tarotResult h2:first-child { margin-top: 0; }
 @media (max-width: 560px) {
   .slots { gap: 10px; grid-template-columns: repeat(var(--n, 3), minmax(0, 96px)); }
-  .tc-glyph { font-size: 26px; }
-  .tc-face.major .tc-glyph { font-size: 20px; }
-  .tc-name { font-size: 11px; }
   .deck { grid-template-columns: repeat(8, 1fr); gap: 5px; }
 }

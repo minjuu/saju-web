@@ -188,6 +188,19 @@ window.startLoading = (out, kind) => {
   return () => clearInterval(tick);
 };
 
+// 따옴표("…", “…”) 안의 글자를 굵게 (태그 안 속성은 건드리지 않도록 텍스트 노드만 바꾼다)
+window.boldQuotes = root => {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) if (/["“][^"”]+["”]/.test(walker.currentNode.nodeValue)) nodes.push(walker.currentNode);
+  for (const n of nodes) {
+    if (n.parentElement.closest('strong, h2, h3, code')) continue;
+    const span = document.createElement('span');
+    span.innerHTML = esc(n.nodeValue).replace(/(&quot;|“)([^"”<]{1,80}?)(&quot;|”)/g, '<strong>$1$2$3</strong>');
+    n.replaceWith(...span.childNodes);
+  }
+};
+
 // ---------- 풀이 리포트 ----------
 // 서버(모델)는 "## 섹션 / ### 소제목 / ```scores``` 블록" 형식의 마크다운을 스트리밍한다.
 // 이를 섹션 탭 + 섹션 카드 + 라벨 + 능력치 차트로 바꿔 그린다. 글자가 올 때마다 다시 그린다
@@ -255,6 +268,7 @@ function renderReport(out, text) {
     list.replaceWith(...ps);
   });
   tmp.querySelectorAll('p').forEach(p => { p.innerHTML = p.innerHTML.replace(/^\s*(\d+[.)]|[①-⑨])\s+/, ''); });
+  boldQuotes(tmp);
   const sections = [];
   let cur = null;
   for (const node of [...tmp.childNodes]) {

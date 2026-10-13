@@ -133,6 +133,7 @@
         text += dec.decode(value, { stream: true });
         stopLoading();
         out.innerHTML = DOMPurify.sanitize(marked.parse(text));
+        boldQuotes(out);
       }
     } catch (err) {
       $('#tarotError').textContent = err.message;

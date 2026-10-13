@@ -205,7 +205,14 @@ window.boldQuotes = root => {
 };
 
 // 한글·따옴표 바로 옆의 **굵게**는 마크다운 규칙상 인식이 안 되는 경우가 많아, 파싱 전에 직접 <strong>으로 바꾼다
-window.mdPrep = text => text.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+// 따옴표(" “ ” ‘ ’ ')로 감싼 말은 따옴표를 지우고 굵게 만든다. 점수 코드 블록(```)은 건드리지 않는다
+window.mdPrep = text => text.split(/(```[\s\S]*?(?:```|$))/).map((part, i) => i % 2 ? part : part
+  .replace(/\*\*\s*["“‘']\s*([^"“”‘’'\n*]{1,80}?)\s*["”’']\s*\*\*/g, '**$1**') // **"말"**
+  .replace(/["“‘']\s*\*\*([^*\n]{1,80}?)\*\*\s*["”’']/g, '**$1**')             // "**말**"
+  .replace(/[“‘]([^“”‘’\n]{1,80}?)[”’]/g, '**$1**')                           // “말”, ‘말’
+  .replace(/"([^"\n]{1,80}?)"/g, '**$1**')                                     // "말"
+  .replace(/'([가-힣][^'\n]{0,79}?)'/g, '**$1**')                               // '말'
+  .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')).join('');
 
 // ---------- 풀이 리포트 ----------
 // 서버(모델)는 "## 섹션 / ### 소제목 / ```scores``` 블록" 형식의 마크다운을 스트리밍한다.
@@ -213,7 +220,7 @@ window.mdPrep = text => text.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>
 function parseScores(src) {
   return src.split('\n').map(l => l.split('|').map(x => x.trim()))
     .filter(p => p.length >= 3 && p[0] && /^\d+$/.test(p[1]))
-    .map(([name, v, desc]) => ({ name, v: Math.max(0, Math.min(100, Number(v))), desc }));
+    .map(([name, v, desc]) => ({ name, v: Math.max(0, Math.min(100, Number(v))), desc: (desc || '').replace(/["“”‘’]/g, '') }));
 }
 function radar(items) {
   if (items.length < 5) return ''; // 항목이 적으면(계절·연도별) 막대만 보여준다

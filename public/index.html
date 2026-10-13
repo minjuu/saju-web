@@ -38,6 +38,9 @@
     <div class="section-head"><h2>무엇이 궁금한가요</h2><span>생년월일시만 있으면 됩니다</span></div>
     <div class="cards" id="cards"></div>
 
+    <div class="section-head"><h2>타로</h2><span>카드를 직접 골라 뽑습니다</span></div>
+    <div class="cards" id="tarotCards"></div>
+
     <div class="notice hidden">
       <b>이용 안내</b>
       <p>사주팔자 표는 누구나 볼 수 있습니다. 사주 풀이는 로그인 후 계정당 하루 한 번 볼 수 있습니다.</p>
@@ -92,6 +95,30 @@
     <section class="card hidden" id="readingCard"><h2>풀이</h2><div id="reading" aria-live="polite"></div></section>
   </section>
 
+  <!-- 타로 -->
+  <section id="view-tarot" class="view hidden">
+    <a class="back" href="#/">← 홈</a>
+    <div class="reading-head">
+      <span class="topic-mark t-mark" id="tarotMark"></span>
+      <div><h1 id="tarotTitle"></h1><p id="tarotDesc"></p></div>
+    </div>
+
+    <div class="card tarot-box">
+      <div class="field" id="tarotQWrap"><label for="tarotQ">질문</label>
+        <textarea id="tarotQ" rows="2" maxlength="300"></textarea>
+      </div>
+      <div class="slots" id="slots"></div>
+      <p class="tarot-guide" id="tarotGuide"></p>
+      <div class="deck" id="deck"></div>
+      <div class="tarot-actions">
+        <button class="ghost-btn" id="reshuffle" type="button">다시 섞기</button>
+        <button class="primary" id="tarotGo" type="button" disabled>풀이 보기</button>
+      </div>
+      <div class="error" id="tarotError" role="alert"></div>
+    </div>
+    <section class="card hidden" id="tarotResultCard"><h2>풀이</h2><div id="tarotResult" aria-live="polite"></div></section>
+  </section>
+
   <!-- 로그인 -->
   <section id="view-login" class="view hidden">
     <div class="login">
@@ -122,5 +149,6 @@
 <footer>사주 풀이는 참고용입니다. · 사주토끼</footer>
 
 <script src="/app.js"></script>
+<script src="/tarot.js"></script>
 </body>
 </html>

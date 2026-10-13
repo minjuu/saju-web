@@ -56,6 +56,8 @@ function route() {
     $('#error').textContent = '';
     $('#view-reading').classList.remove('hidden');
     refreshQuota();
+  } else if (page === 'tarot' && window.openTarot?.(arg)) {
+    $('#view-tarot').classList.remove('hidden');
   } else if (page === 'login') {
     if (user) { location.hash = '#/'; return; }
     $('#view-login').classList.remove('hidden');

@@ -133,7 +133,7 @@ const TOPICS = {
 
 // 혼잡(503)·한도(429) 응답이면 잠시 후 재시도하고, 그래도 안 되면 대체 모델로 넘어간다
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-async function requestGemini(input, topic, signal) {
+async function requestGemini(system, input, signal) {
   let last;
   for (const model of [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -144,7 +144,7 @@ async function requestGemini(input, topic, signal) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: `${INSTRUCTIONS}\n- 구성: ${TOPICS[topic]}` }] },
+            systemInstruction: { parts: [{ text: system }] },
             contents: [{ role: 'user', parts: [{ text: input }] }],
           }),
           signal,
@@ -227,12 +227,17 @@ app.post('/api/reading', async (req, res) => {
 ${JSON.stringify(saju, null, 2)}
 ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
+  await streamGemini(res, `${INSTRUCTIONS}\n- 구성: ${TOPICS[topic]}`, input, () => LIMIT && refundQuota(user.id));
+});
+
+// Gemini 응답을 텍스트 스트림으로 그대로 흘려보낸다. 실패하면 onFail(횟수 복구 등)을 부른다
+async function streamGemini(res, system, input, onFail) {
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache');
   const ac = new AbortController();
   res.on('close', () => ac.abort());
   try {
-    const r = await requestGemini(input, topic, ac.signal);
+    const r = await requestGemini(system, input, ac.signal);
     // SSE: "data: {...}" 줄마다 응답 조각이 온다
     const dec = new TextDecoder();
     let buf = '';
@@ -248,13 +253,50 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
     }
     res.end();
   } catch (e) {
-    if (LIMIT) await refundQuota(user.id).catch(() => {}); // 실패하거나 중간에 끊긴 요청은 횟수에서 빼준다
+    await Promise.resolve(onFail?.()).catch(() => {});
     if (ac.signal.aborted) return;
     console.error('Gemini 오류:', e.message);
     res.end(e.busy
       ? '\n\n지금 이용자가 많아 풀이를 작성하지 못했습니다. 잠시 후 다시 시도하세요.'
       : '\n\n풀이 작성 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
   }
+}
+
+// ---------- 타로 ----------
+const MAJOR = ['바보', '마법사', '여사제', '여황제', '황제', '교황', '연인', '전차', '힘', '은둔자', '운명의 수레바퀴',
+  '정의', '매달린 사람', '죽음', '절제', '악마', '탑', '별', '달', '태양', '심판', '세계'];
+const SUITS = ['완드', '컵', '소드', '펜타클'];
+const RANKS = ['에이스', '2', '3', '4', '5', '6', '7', '8', '9', '10', '페이지', '나이트', '퀸', '킹'];
+// 0~21 메이저, 22~77 마이너 (public/tarot.js와 같은 순서)
+const DECK = [...MAJOR, ...SUITS.flatMap(s => RANKS.map(r => `${s} ${r}`))];
+
+const SPREADS = {
+  today: { count: 1, positions: ['오늘의 카드'], frame: '오늘 하루의 흐름과 조언' },
+  love: { count: 3, positions: ['나의 마음', '상대 또는 인연의 상황', '앞으로의 흐름'], frame: '연애와 관계' },
+  worry: { count: 3, positions: ['과거', '현재', '미래'], frame: '사용자의 고민' },
+};
+
+const TAROT_INSTRUCTIONS = `당신은 경험 많은 타로 리더입니다. 뽑힌 카드와 위치, 정/역방향을 바탕으로 해석하세요.
+- 카드마다 ## 위치 — 카드 이름(정/역방향) 제목을 쓰고, 카드의 전통적 의미와 이 위치에서의 의미를 설명하세요.
+- 마지막에 ## 종합 과 ## 조언 을 쓰세요.
+- 담백한 존댓말(~합니다)로 간결하게 쓰세요. 감성적 수사, 이모지, 과장된 위로·칭찬은 쓰지 마세요.
+- 단정적인 예언이나 공포 조장은 피하고, 의료·법률·투자 판단은 전문가 상담을 권하세요. 마크다운으로 작성하세요.`;
+
+app.post('/api/tarot', async (req, res) => {
+  if (!GEMINI_API_KEY) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
+  const { spread, question, cards } = req.body || {};
+  const sp = SPREADS[spread];
+  if (!sp) return res.status(400).json({ error: '알 수 없는 타로 종류입니다' });
+  if (question && (typeof question !== 'string' || question.length > 300)) return res.status(400).json({ error: '질문은 300자 이내로 입력하세요' });
+  if (!Array.isArray(cards) || cards.length !== sp.count
+    || cards.some(c => !Number.isInteger(c?.id) || !DECK[c.id] || typeof c.reversed !== 'boolean')
+    || new Set(cards.map(c => c.id)).size !== cards.length) return res.status(400).json({ error: '카드를 다시 뽑아주세요' });
+
+  const input = `오늘 날짜: ${today()}
+주제: ${sp.frame}
+${question ? `질문: ${question}\n` : ''}뽑힌 카드:
+${cards.map((c, i) => `- ${sp.positions[i]}: ${DECK[c.id]} (${c.reversed ? '역방향' : '정방향'})`).join('\n')}`;
+  await streamGemini(res, TAROT_INSTRUCTIONS, input);
 });
 
 app.listen(PORT, () => console.log(`사주 서버 실행: http://localhost:${PORT}`));

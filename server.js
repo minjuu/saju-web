@@ -6,12 +6,14 @@ const {
   PORT = 3000,
   GEMINI_API_KEY,
   GEMINI_MODEL = 'gemini-flash-latest',
+  GEMINI_FALLBACK_MODEL = 'gemini-flash-lite-latest',
 } = process.env;
 
 if (!GEMINI_API_KEY) console.warn('API 키 미설정: 만세력만 사용할 수 있습니다.');
 
 const app = express();
 
+app.set('trust proxy', 1); // Render 프록시 뒤에서 실제 접속 IP를 req.ip로 받기 위함
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -107,6 +109,49 @@ const INSTRUCTIONS = `당신은 30년 경력의 한국 명리학자입니다. �
 - 근거(오행·십신)를 짧게 밝히고 구체적으로 쓰되, 단정적인 공포 조장은 피하세요. 마크다운으로 작성하세요.
 - 의료·법률·투자 판단은 전문가 상담을 권하세요.`;
 
+// 혼잡(503)·한도(429) 응답이면 잠시 후 재시도하고, 그래도 안 되면 대체 모델로 넘어간다
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function requestGemini(input, signal) {
+  let last;
+  for (const model of [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt) await sleep(2000);
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: INSTRUCTIONS }] },
+            contents: [{ role: 'user', parts: [{ text: input }] }],
+          }),
+          signal,
+        },
+      );
+      if (r.ok) return r;
+      last = Object.assign(new Error(`${model} ${r.status} ${await r.text()}`), { busy: [429, 503].includes(r.status) });
+      if (!last.busy) throw last;
+      console.warn(`Gemini ${model} ${r.status}, 재시도`);
+    }
+  }
+  throw last;
+}
+
+// IP당 하루 1회 (한국 시간 기준, 메모리 저장 — 서버 재시작 시 초기화)
+const DAILY_LIMIT = 1;
+const usage = new Map();
+function takeQuota(ip) {
+  const u = usage.get(ip);
+  if (!u || u.date !== today()) { usage.set(ip, { date: today(), count: 1 }); return true; }
+  if (u.count >= DAILY_LIMIT) return false;
+  u.count++;
+  return true;
+}
+function refundQuota(ip) {
+  const u = usage.get(ip);
+  if (u && u.date === today() && u.count > 0) u.count--;
+}
+
 app.post('/api/reading', async (req, res) => {
   if (!GEMINI_API_KEY) return res.status(503).json({ error: 'AI 해석을 사용할 수 없습니다. 서버에 GEMINI_API_KEY가 설정되지 않았습니다.' });
   const err = validate(req.body);
@@ -114,6 +159,7 @@ app.post('/api/reading', async (req, res) => {
 
   let saju;
   try { saju = computeSaju(req.body); } catch { return res.status(400).json({ error: '존재하지 않는 날짜입니다' }); }
+  if (!takeQuota(req.ip)) return res.status(429).json({ error: 'AI 해석은 하루 한 번만 받을 수 있습니다. 내일 다시 시도하세요.' });
 
   const input = `오늘 날짜: ${today()}
 사주 데이터:
@@ -125,19 +171,7 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
   const ac = new AbortController();
   res.on('close', () => ac.abort());
   try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: INSTRUCTIONS }] },
-          contents: [{ role: 'user', parts: [{ text: input }] }],
-        }),
-        signal: ac.signal,
-      },
-    );
-    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    const r = await requestGemini(input, ac.signal);
     // SSE: "data: {...}" 줄마다 응답 조각이 온다
     const dec = new TextDecoder();
     let buf = '';
@@ -153,9 +187,12 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
     }
     res.end();
   } catch (e) {
+    refundQuota(req.ip); // 실패하거나 중간에 끊긴 요청은 횟수에서 빼준다
     if (ac.signal.aborted) return;
     console.error('Gemini 오류:', e.message);
-    res.end('\n\n해석 생성 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
+    res.end(e.busy
+      ? '\n\nAI 서버(Gemini)가 혼잡해 해석을 생성하지 못했습니다. 잠시 후 다시 시도하세요.'
+      : '\n\n해석 생성 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
   }
 });
 

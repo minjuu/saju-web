@@ -104,7 +104,7 @@ $('#form').onsubmit = async e => {
     out.innerHTML = ''; out.classList.add('loading');
     $('#readingCard').classList.remove('hidden');
     const res = await fetch('/api/reading', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) { out.classList.remove('loading'); throw new Error((await res.json()).error); }
+    if (!res.ok) { out.classList.remove('loading'); $('#readingCard').classList.add('hidden'); throw new Error((await res.json()).error); }
     const reader = res.body.getReader(), dec = new TextDecoder();
     let text = '';
     for (;;) {

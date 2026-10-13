@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const { Solar, Lunar } = require('lunar-javascript');
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 const {
@@ -13,10 +14,12 @@ const {
   SUPABASE_SERVICE_ROLE_KEY,
   AUTH_PROVIDERS = 'kakao,google,email',
   DAILY_LIMIT_ENABLED = 'false', // 'true'면 로그인 필수 + 계정당 하루 1회
+  LOCAL_LLM_SECRET, // 맥에서 돌리는 로컬 모델(local-llm/agent.js)과 공유하는 비밀 키
+  LOCAL_LLM_MODEL = 'gpt-oss:20b',
 } = process.env;
 const LIMIT = DAILY_LIMIT_ENABLED === 'true';
 
-if (!GEMINI_API_KEY) console.warn('GEMINI_API_KEY 미설정: 만세력만 사용할 수 있습니다.');
+if (!GEMINI_API_KEY && !LOCAL_LLM_SECRET) console.warn('GEMINI_API_KEY, LOCAL_LLM_SECRET 미설정: 만세력만 사용할 수 있습니다.');
 // 서버 전용 클라이언트: 로그인 토큰 검증과 사용 기록(reading_usage) 관리에 쓴다
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
@@ -116,7 +119,8 @@ app.post('/api/saju', (req, res) => {
 const INSTRUCTIONS = `당신은 30년 경력의 한국 명리학자입니다. 제공된 사주팔자 데이터(이미 정확히 계산됨)를 바탕으로 풀이하세요.
 - 계산 결과를 다시 계산하거나 바꾸지 말고 그대로 사용하세요.
 - 일간의 강약, 오행의 균형, 십신 구성, 용신(추정)을 근거로 설명하세요.
-- 요청된 구성의 제목(##)을 그대로 쓰고, 사용자 질문이 있으면 마지막에 ## 질문에 대한 답변을 추가하세요.
+- 요청된 구성의 제목(##)을 그대로 쓰세요.
+- 십신 이름은 데이터에 적힌 그대로 쓰고, 일간 자체를 십신으로 설명하지 마세요.
 - 담백한 존댓말(~합니다)로 간결하게 쓰세요. 감성적 수사, 이모지, 과장된 위로·칭찬은 쓰지 마세요.
 - 근거(오행·십신)를 짧게 밝히고 구체적으로 쓰되, 단정적인 공포 조장은 피하세요. 마크다운으로 작성하세요.
 - 의료·법률·투자 판단은 전문가 상담을 권하세요.`;
@@ -216,7 +220,7 @@ app.get('/api/quota', async (req, res) => {
 });
 
 app.post('/api/reading', async (req, res) => {
-  if (!GEMINI_API_KEY || (LIMIT && !supabase)) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
+  if ((!GEMINI_API_KEY && !LOCAL_LLM_SECRET) || (LIMIT && !supabase)) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
   const user = LIMIT ? await getUser(req) : null;
   if (LIMIT && !user) return res.status(401).json({ error: '풀이는 로그인 후 볼 수 있습니다' });
   const err = validate(req.body);
@@ -237,29 +241,88 @@ app.post('/api/reading', async (req, res) => {
 ${JSON.stringify(saju, null, 2)}
 ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
-  await streamGemini(res, `${INSTRUCTIONS}\n- 구성: ${TOPICS[topic]}`, input, () => LIMIT && refundQuota(user.id));
+  const sections = TOPICS[topic] + (req.body.question ? ' / ## 질문에 대한 답변' : '');
+  await streamLLM(res, `${INSTRUCTIONS}\n- 구성: ${sections}`, input, () => LIMIT && refundQuota(user.id));
 });
 
-// Gemini 응답을 텍스트 스트림으로 그대로 흘려보낸다. 실패하면 onFail(횟수 복구 등)을 부른다
-async function streamGemini(res, system, input, onFail) {
+// ---------- 로컬 모델 (맥의 gpt-oss) ----------
+// 맥의 agent.js가 1분마다 터널 주소를 등록한다. 3분 넘게 소식이 없으면 꺼진 것으로 본다
+let localLLM = null; // { url, at }
+const sameSecret = v => !!LOCAL_LLM_SECRET && typeof v === 'string' && v.length === LOCAL_LLM_SECRET.length
+  && crypto.timingSafeEqual(Buffer.from(v), Buffer.from(LOCAL_LLM_SECRET));
+app.post('/api/llm/register', (req, res) => {
+  if (!sameSecret(req.get('x-llm-secret'))) return res.status(403).end();
+  const url = req.body?.url;
+  if (typeof url !== 'string' || !/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(url)) return res.status(400).end();
+  if (localLLM?.url !== url) console.log('로컬 모델 연결:', url);
+  localLLM = { url, at: Date.now() };
+  res.json({ ok: true });
+});
+const localAlive = () => localLLM && Date.now() - localLLM.at < 3 * 60 * 1000;
+
+async function requestLocal(system, input, signal) {
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(), 15000);
+  try {
+    const r = await fetch(`${localLLM.url}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-llm-secret': LOCAL_LLM_SECRET },
+      body: JSON.stringify({
+        model: LOCAL_LLM_MODEL,
+        stream: true,
+        reasoning_effort: 'medium',
+        messages: [{ role: 'system', content: system }, { role: 'user', content: input }],
+      }),
+      signal: AbortSignal.any([signal, timeout.signal]),
+    });
+    if (!r.ok) throw new Error(`로컬 모델 ${r.status}`);
+    return r;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// SSE 응답에서 "data: {...}" 줄을 하나씩 꺼낸다
+async function* sseEvents(body) {
+  const dec = new TextDecoder();
+  let buf = '';
+  for await (const chunk of body) {
+    buf += dec.decode(chunk, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ') || line.startsWith('data: [DONE]')) continue;
+      yield JSON.parse(line.slice(6));
+    }
+  }
+}
+
+// 맥의 로컬 모델 → Gemini 순서로 시도해 응답을 텍스트 스트림으로 흘려보낸다. 실패하면 onFail(횟수 복구 등)을 부른다
+async function streamLLM(res, system, input, onFail) {
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache');
   const ac = new AbortController();
   res.on('close', () => ac.abort());
+  let wrote = false;
+  const write = t => { if (t) { wrote = true; res.write(t); } };
+
+  if (localAlive()) {
+    try {
+      const r = await requestLocal(system, input, ac.signal);
+      for await (const ev of sseEvents(r.body)) write(ev.choices?.[0]?.delta?.content);
+      if (wrote) return res.end();
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      console.warn('로컬 모델 실패, Gemini로 전환:', e.message);
+      if (wrote) return res.end('\n\n풀이가 중간에 끊겼습니다. 다시 시도하세요.');
+    }
+  }
+
   try {
+    if (!GEMINI_API_KEY) throw Object.assign(new Error('사용 가능한 모델 없음'), { busy: true });
     const r = await requestGemini(system, input, ac.signal);
-    // SSE: "data: {...}" 줄마다 응답 조각이 온다
-    const dec = new TextDecoder();
-    let buf = '';
-    for await (const chunk of r.body) {
-      buf += dec.decode(chunk, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const parts = JSON.parse(line.slice(6)).candidates?.[0]?.content?.parts || [];
-        for (const p of parts) if (p.text && !p.thought) res.write(p.text);
-      }
+    for await (const ev of sseEvents(r.body)) {
+      for (const p of ev.candidates?.[0]?.content?.parts || []) if (!p.thought) write(p.text);
     }
     res.end();
   } catch (e) {
@@ -293,7 +356,7 @@ const TAROT_INSTRUCTIONS = `당신은 경험 많은 타로 리더입니다. 뽑�
 - 단정적인 예언이나 공포 조장은 피하고, 의료·법률·투자 판단은 전문가 상담을 권하세요. 마크다운으로 작성하세요.`;
 
 app.post('/api/tarot', async (req, res) => {
-  if (!GEMINI_API_KEY) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
+  if (!GEMINI_API_KEY && !LOCAL_LLM_SECRET) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
   const { spread, question, cards } = req.body || {};
   const sp = SPREADS[spread];
   if (!sp) return res.status(400).json({ error: '알 수 없는 타로 종류입니다' });
@@ -306,7 +369,7 @@ app.post('/api/tarot', async (req, res) => {
 주제: ${sp.frame}
 ${question ? `질문: ${question}\n` : ''}뽑힌 카드:
 ${cards.map((c, i) => `- ${sp.positions[i]}: ${DECK[c.id]} (${c.reversed ? '역방향' : '정방향'})`).join('\n')}`;
-  await streamGemini(res, TAROT_INSTRUCTIONS, input);
+  await streamLLM(res, TAROT_INSTRUCTIONS, input);
 });
 
 app.listen(PORT, () => console.log(`사주 서버 실행: http://localhost:${PORT}`));

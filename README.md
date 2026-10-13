@@ -1,4 +1,6 @@
-# AI 사주풀이
+# 사주토끼
+
+당신의 운세를 깡총, 들여다봐요.
 
 만세력 계산(lunar-javascript) + ChatGPT(OpenAI API) 해석 웹사이트.
 

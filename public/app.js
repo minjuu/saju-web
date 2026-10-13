@@ -288,7 +288,13 @@ function renderReport(out, text) {
     const ps = [...list.children].map(li => { const p = document.createElement('p'); p.innerHTML = li.innerHTML; return p; });
     list.replaceWith(...ps);
   });
-  tmp.querySelectorAll('p').forEach(p => { p.innerHTML = p.innerHTML.replace(/^\s*(\d+[.)]|[①-⑨])\s+/, ''); });
+  // 문단 앞이나 문장 중간의 "1) ", "2. ", "①" 같은 번호를 지운다 (연도·소수점은 그대로)
+  tmp.querySelectorAll('p').forEach(p => {
+    p.innerHTML = p.innerHTML
+      .replace(/^\s*(\d+[.)]|[①-⑨])\s+/, '')
+      .replace(/(^|[\s>(])\d\)\s*/g, '$1')
+      .replace(/[①-⑨]\s*/g, '');
+  });
   boldQuotes(tmp);
   const sections = [];
   let cur = null;

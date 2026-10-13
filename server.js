@@ -14,12 +14,14 @@ const {
   SUPABASE_SERVICE_ROLE_KEY,
   AUTH_PROVIDERS = 'kakao,google,email',
   DAILY_LIMIT_ENABLED = 'false', // 'true'면 로그인 필수 + 계정당 하루 1회
-  LOCAL_LLM_SECRET, // 맥에서 돌리는 로컬 모델(local-llm/agent.js)과 공유하는 비밀 키
+  // 맥의 로컬 모델(local-llm/agent.js) 비밀 키의 SHA-256. 키 자체는 서버에 두지 않고,
+  // agent가 등록할 때 보내는 키를 이 값과 비교한 뒤 그 키로 터널에 요청한다
+  LOCAL_LLM_SECRET_SHA256 = 'f4709281f4953afc18ac1ee69295b53ebd69c9b2e098785a6ee02cfaf3614da4',
   LOCAL_LLM_MODEL = 'gpt-oss:20b',
 } = process.env;
 const LIMIT = DAILY_LIMIT_ENABLED === 'true';
 
-if (!GEMINI_API_KEY && !LOCAL_LLM_SECRET) console.warn('GEMINI_API_KEY, LOCAL_LLM_SECRET 미설정: 만세력만 사용할 수 있습니다.');
+if (!GEMINI_API_KEY) console.warn('GEMINI_API_KEY 미설정: 맥의 로컬 모델이 연결됐을 때만 풀이가 됩니다.');
 // 서버 전용 클라이언트: 로그인 토큰 검증과 사용 기록(reading_usage) 관리에 쓴다
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
@@ -220,7 +222,7 @@ app.get('/api/quota', async (req, res) => {
 });
 
 app.post('/api/reading', async (req, res) => {
-  if ((!GEMINI_API_KEY && !LOCAL_LLM_SECRET) || (LIMIT && !supabase)) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
+  if ((!GEMINI_API_KEY && !localAlive()) || (LIMIT && !supabase)) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
   const user = LIMIT ? await getUser(req) : null;
   if (LIMIT && !user) return res.status(401).json({ error: '풀이는 로그인 후 볼 수 있습니다' });
   const err = validate(req.body);
@@ -247,15 +249,17 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
 // ---------- 로컬 모델 (맥의 gpt-oss) ----------
 // 맥의 agent.js가 1분마다 터널 주소를 등록한다. 3분 넘게 소식이 없으면 꺼진 것으로 본다
-let localLLM = null; // { url, at }
-const sameSecret = v => !!LOCAL_LLM_SECRET && typeof v === 'string' && v.length === LOCAL_LLM_SECRET.length
-  && crypto.timingSafeEqual(Buffer.from(v), Buffer.from(LOCAL_LLM_SECRET));
+let localLLM = null; // { url, secret, at }
+const EXPECTED = Buffer.from(LOCAL_LLM_SECRET_SHA256, 'hex');
+const sameSecret = v => typeof v === 'string' && v.length > 0 && EXPECTED.length === 32
+  && crypto.timingSafeEqual(crypto.createHash('sha256').update(v).digest(), EXPECTED);
 app.post('/api/llm/register', (req, res) => {
-  if (!sameSecret(req.get('x-llm-secret'))) return res.status(403).end();
+  const secret = req.get('x-llm-secret');
+  if (!sameSecret(secret)) return res.status(403).end();
   const url = req.body?.url;
   if (typeof url !== 'string' || !/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(url)) return res.status(400).end();
   if (localLLM?.url !== url) console.log('로컬 모델 연결:', url);
-  localLLM = { url, at: Date.now() };
+  localLLM = { url, secret, at: Date.now() };
   res.json({ ok: true });
 });
 const localAlive = () => localLLM && Date.now() - localLLM.at < 3 * 60 * 1000;
@@ -266,7 +270,7 @@ async function requestLocal(system, input, signal) {
   try {
     const r = await fetch(`${localLLM.url}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-llm-secret': LOCAL_LLM_SECRET },
+      headers: { 'Content-Type': 'application/json', 'x-llm-secret': localLLM.secret },
       body: JSON.stringify({
         model: LOCAL_LLM_MODEL,
         stream: true,
@@ -356,7 +360,7 @@ const TAROT_INSTRUCTIONS = `당신은 경험 많은 타로 리더입니다. 뽑�
 - 단정적인 예언이나 공포 조장은 피하고, 의료·법률·투자 판단은 전문가 상담을 권하세요. 마크다운으로 작성하세요.`;
 
 app.post('/api/tarot', async (req, res) => {
-  if (!GEMINI_API_KEY && !LOCAL_LLM_SECRET) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
+  if (!GEMINI_API_KEY && !localAlive()) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
   const { spread, question, cards } = req.body || {};
   const sp = SPREADS[spread];
   if (!sp) return res.status(400).json({ error: '알 수 없는 타로 종류입니다' });

@@ -16,6 +16,7 @@ try {
   }
 } catch {}
 const { spawn } = require('child_process');
+const STATS_FILE = path.join(require('os').homedir(), 'Library/Logs/saju-requests.jsonl');
 
 const {
   LOCAL_LLM_SECRET,
@@ -32,8 +33,16 @@ const proxy = http.createServer((req, res) => {
     return;
   }
   const t0 = Date.now();
-  console.log(new Date().toLocaleTimeString('ko-KR'), '풀이 요청 받음');
-  res.on('finish', () => console.log(new Date().toLocaleTimeString('ko-KR'), `풀이 완료 (${Math.round((Date.now() - t0) / 1000)}초)`));
+  let meta = {};
+  try { meta = JSON.parse(decodeURIComponent(req.headers['x-llm-meta'] || '%7B%7D')); } catch {}
+  const who = `${meta.kind || '풀이'}  ${meta.device || ''}  방문자 #${meta.visitor || '-'}${meta.test ? '  (테스트)' : ''}`;
+  console.log(new Date().toLocaleTimeString('ko-KR'), '요청', who);
+  res.on('finish', () => {
+    const sec = Math.round((Date.now() - t0) / 1000);
+    console.log(new Date().toLocaleTimeString('ko-KR'), '완료', who, `${sec}초`);
+    // 통계용 기록 (ctl.sh status가 읽는다)
+    fs.appendFile(STATS_FILE, JSON.stringify({ ts: new Date().toISOString(), ...meta, sec, status: res.statusCode }) + '\n', () => {});
+  });
   const up = http.request(`${OLLAMA_URL}${req.url}`, { method: 'POST', headers: { 'content-type': 'application/json' } }, upRes => {
     res.writeHead(upRes.statusCode, { 'content-type': upRes.headers['content-type'] || 'text/event-stream' });
     upRes.pipe(res);

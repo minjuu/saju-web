@@ -197,7 +197,7 @@ function parseScores(src) {
     .map(([name, v, desc]) => ({ name, v: Math.max(0, Math.min(100, Number(v))), desc }));
 }
 function radar(items) {
-  if (items.length < 3) return '';
+  if (items.length < 5) return ''; // 항목이 적으면(계절·연도별) 막대만 보여준다
   const R = 90, cx = 130, cy = 120, n = items.length;
   const pt = (i, r) => {
     const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
@@ -246,7 +246,6 @@ function renderReport(out, text) {
     code.parentElement.replaceWith(box);
   });
   tmp.querySelectorAll('hr').forEach(h => h.remove());
-  tmp.querySelectorAll('h3').forEach(h => { const e = emojiFor(h.textContent); if (e) h.textContent = `${e} ${h.textContent}`; });
   const sections = [];
   let cur = null;
   for (const node of [...tmp.childNodes]) {

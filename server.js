@@ -211,13 +211,14 @@ const INSTRUCTIONS = `당신은 한국 전통 명리학에 밝은 상담가입�
 [말투]
 - 이름이 주어지면 "OO님"으로 부르고, 대화하듯 "~예요", "~거예요", "~편이에요"를 중심으로 쓰세요.
 - 단정하지 말고 "~로 읽혀요", "~일 가능성이 커요"처럼 쓰세요. 과장된 칭찬과 뻔한 덕담은 쓰지 마세요.
-- 각 "###" 문단의 마지막 문장 끝에 내용에 어울리는 이모지 하나를 붙이세요(예: 🌱 🔥 💧 🌙 ☀️ 🍀 💪 🫶). 제목에는 이모지를 쓰지 마세요.
+- 이모지는 "##" 섹션마다 많아야 하나만, 그 섹션에서 가장 중요한 문장 끝에 붙이세요(예: 🌱 🔥 🌙 🫶). 제목에는 쓰지 마세요.
 - 의료·법률·투자 판단이 필요한 내용은 전문가 상담을 권하세요.
 
 [형식 — 반드시 지키세요]
 - 큰 섹션은 "## 제목", 그 안의 작은 주제는 "### 제목"으로 쓰고, 요청된 구성의 제목을 순서대로 그대로 쓰세요. 구성에서 괄호나 "—" 뒤의 설명은 쓸 내용 안내이니 제목에 넣지 마세요.
 - "###" 아래에는 위 [깊이] 순서를 따른 문단을 쓰세요(필요하면 두 문단). 목록이나 표는 쓰지 마세요.
-- 점수 섹션은 아래처럼 코드 블록 하나로만 쓰세요. 항목마다 "이름|0~100 사이 점수|한 문장 설명" 한 줄이며, 점수는 사주 근거에 맞게 들쭉날쭉하게 주세요.
+- 질문이 있어도 구성의 모든 섹션과 소제목을 빠짐없이 쓰고, 질문 답변은 별도 섹션으로 추가하세요.
+- 점수(scores 블록)는 아래 형식으로 쓰세요. 구성에 "scores 블록"이 적힌 곳마다 하나씩 넣어요. 항목마다 "이름|0~100 사이 점수|한 문장 설명" 한 줄이며, 점수는 사주 근거에 맞게 들쭉날쭉하게 주세요.
 \`\`\`scores
 표현력|45|말수는 적지만 깊이 있는 표현은 한 번에 전달돼요.
 \`\`\`
@@ -229,19 +230,19 @@ const TOPICS = {
   total: y => `## 타고난 기질 (### 한 줄 요약 — 일주 중심 핵심과 키워드 / ### 성격 / ### 강점 / ### 약점)
 ## 일과 돈 (### 잘 맞는 일 / ### 돈이 들어오는 방식 / ### 조심할 점)
 ## 사랑과 관계 (### 연애 스타일 / ### 배우자 인연 / ### 사람 관계)
-## 앞으로 3년 (### ${y}년 / ### ${y + 1}년 / ### ${y + 2}년 — 각각 세운 간지를 제목에 함께, 예: "### ${y}년 병오(丙午)")
+## 앞으로 3년 (### ${y}년 / ### ${y + 1}년 / ### ${y + 2}년 — 각각 세운 간지를 제목에 함께, 예: "### ${y}년 병오(丙午)" / 섹션 맨 끝에 scores 블록, 항목: ${y}년, ${y + 1}년, ${y + 2}년 — 연도별 운 점수)
 ## 나의 능력치 (scores 블록, 항목: 리더십, 추진력, 끈기, 표현력, 재물 감각, 대인관계)
 ## 사주토끼의 한마디`,
   year: y => `## ${y}년 한눈에 (### 올해의 키워드 / ### 총평)
-## 계절별 흐름 (### 봄 (1~3월) / ### 여름 (4~6월) / ### 가을 (7~9월) / ### 겨울 (10~12월) — 월운 데이터를 근거로)
+## 계절별 흐름 (### 봄 (1~3월) / ### 여름 (4~6월) / ### 가을 (7~9월) / ### 겨울 (10~12월) — 월운 데이터를 근거로 / 섹션 맨 끝에 scores 블록, 항목: 봄, 여름, 가을, 겨울 — 계절별 운 점수)
 ## 분야별 운 (### 일 / ### 돈 / ### 연애 / ### 건강)
 ## 올해 운 점수 (scores 블록, 항목: 총운, 재물운, 직업운, 연애운, 건강운, 대인운)
 ## 주의할 시기 (### 조심할 달 / ### 이렇게 보내세요)
 ## 사주토끼의 한마디`,
   love: y => `## 연애 성향 (### 연애 스타일 / ### 매력 포인트 / ### 사랑받고 싶은 방식 / ### 조심할 점)
 ## 인연 분석 (### 솔로라면 — 인연이 올 시기와 상대의 분위기·만나는 경로 / ### 연애 중이라면 — 지금 관계의 흐름 / ### 결혼운 — 배우자 별(여성은 관성, 남성은 재성)과 일지 근거)
-## 올해의 연애 흐름 (### 봄 (1~3월) / ### 여름 (4~6월) / ### 가을 (7~9월) / ### 겨울 (10~12월) / ### 올해의 핵심 — 월운 데이터를 근거로)
-## 앞으로 3년의 사랑 (### ${y}년 / ### ${y + 1}년 / ### ${y + 2}년 — 각각 세운 간지를 제목에 함께, 예: "### ${y}년 병오(丙午)")
+## 올해의 연애 흐름 (### 봄 (1~3월) / ### 여름 (4~6월) / ### 가을 (7~9월) / ### 겨울 (10~12월) / ### 올해의 핵심 — 월운 데이터를 근거로 / 섹션 맨 끝에 scores 블록, 항목: 봄, 여름, 가을, 겨울 — 계절별 연애운 점수)
+## 앞으로 3년의 사랑 (### ${y}년 / ### ${y + 1}년 / ### ${y + 2}년 — 각각 세운 간지를 제목에 함께, 예: "### ${y}년 병오(丙午)" / 섹션 맨 끝에 scores 블록, 항목: ${y}년, ${y + 1}년, ${y + 2}년 — 연도별 연애운 점수)
 ## 반복되는 패턴 (### 무의식 패턴 / ### 반복되는 흐름 / ### 바꾸는 방법)
 ## 연애 능력치 (scores 블록, 항목: 표현력, 공감력, 인내심, 독립성, 헌신도, 유연성)
 ## 잘 맞는 사람 (### 잘 맞는 사람 / ### 안 맞는 사람 / ### 가까워지는 순간)
@@ -359,7 +360,29 @@ ${JSON.stringify(saju, null, 2)}
 ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
   const sections = TOPICS[topic](Number(today().slice(0, 4))) + (req.body.question ? '\n## 질문에 대한 답변 (### 답변) — 사주토끼의 한마디 바로 앞에 둘 것' : '');
-  await streamLLM(res, `${INSTRUCTIONS}\n\n[구성]\n${sections}`, input, () => LIMIT && refundQuota(user.id));
+  await streamLLM(res, `${INSTRUCTIONS}\n\n[구성]\n${sections}`, input, () => LIMIT && refundQuota(user.id), requestMeta(req, topic));
+});
+
+// ---------- 요청 기록용 정보 (개인정보 없이) ----------
+// 생년월일·이름·질문·IP는 남기지 않는다. 방문자 번호는 IP를 매일 바뀌는 랜덤 값과 섞어 해시한 앞 4자리라 되돌릴 수 없다
+let salt = { day: '', value: '' };
+function visitorId(req) {
+  if (salt.day !== today()) salt = { day: today(), value: crypto.randomBytes(16).toString('hex') };
+  const ip = (req.get('x-forwarded-for') || req.ip || '').split(',')[0].trim();
+  return crypto.createHash('sha256').update(salt.value + ip).digest('hex').slice(0, 4);
+}
+function deviceOf(ua = '') {
+  const os = /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Mac OS/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : '기타';
+  const br = /KAKAOTALK/i.test(ua) ? '카카오톡' : /Instagram/.test(ua) ? '인스타그램' : /Edg\//.test(ua) ? 'Edge'
+    : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox/.test(ua) ? 'Firefox' : '기타';
+  return `${os}·${br}`;
+}
+const KIND = { total: '평생 사주', year: '신년 운세', love: '연애운', today: '오늘의 타로', worry: '고민 타로' };
+const requestMeta = (req, key, tarot) => ({
+  kind: tarot && key === 'love' ? '연애 타로' : KIND[key] || key,
+  device: deviceOf(req.get('user-agent')),
+  visitor: visitorId(req),
+  test: /curl|node|python/i.test(req.get('user-agent') || ''),
 });
 
 // ---------- 로컬 모델 (맥의 gpt-oss) ----------
@@ -379,14 +402,14 @@ app.post('/api/llm/register', (req, res) => {
 });
 const localAlive = () => localLLM && Date.now() - localLLM.at < 3 * 60 * 1000;
 
-async function requestLocal(system, input, signal) {
+async function requestLocal(system, input, signal, meta) {
   // 맥에서 모델을 메모리에 올리거나 다른 풀이를 처리 중이면 시작이 늦을 수 있어 60초까지 기다린다
   const timeout = new AbortController();
   const timer = setTimeout(() => timeout.abort(), 60000);
   try {
     const r = await fetch(`${localLLM.url}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-llm-secret': localLLM.secret },
+      headers: { 'Content-Type': 'application/json', 'x-llm-secret': localLLM.secret, 'x-llm-meta': encodeURIComponent(JSON.stringify(meta || {})) },
       body: JSON.stringify({
         model: LOCAL_LLM_MODEL,
         stream: true,
@@ -418,7 +441,7 @@ async function* sseEvents(body) {
 }
 
 // 맥의 로컬 모델 → Gemini 순서로 시도해 응답을 텍스트 스트림으로 흘려보낸다. 실패하면 onFail(횟수 복구 등)을 부른다
-async function streamLLM(res, system, input, onFail) {
+async function streamLLM(res, system, input, onFail, meta = {}) {
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache');
   const ac = new AbortController();
@@ -428,7 +451,7 @@ async function streamLLM(res, system, input, onFail) {
 
   // 맥의 로컬 모델을 먼저 쓰고, 실패하면 Gemini, 그래도 안 되면 로컬 모델을 한 번 더 시도한다
   const tryLocal = async () => {
-    const r = await requestLocal(system, input, ac.signal);
+    const r = await requestLocal(system, input, ac.signal, meta);
     for await (const ev of sseEvents(r.body)) write(ev.choices?.[0]?.delta?.content);
   };
   const tryGemini = async () => {
@@ -447,7 +470,7 @@ async function streamLLM(res, system, input, onFail) {
     try {
       await attempt();
       if (wrote) {
-        console.log(`풀이 완료: ${name}, ${Math.round((Date.now() - t0) / 1000)}초`);
+        console.log(`풀이 완료: ${meta.kind || ''} ${meta.device || ''} 방문자 #${meta.visitor || '-'}${meta.test ? ' (테스트)' : ''} → ${name}, ${Math.round((Date.now() - t0) / 1000)}초`);
         return res.end();
       }
     } catch (e) {
@@ -521,7 +544,7 @@ ${cards.map((c, i) => {
     const [up, rev] = TAROT_MEANINGS[c.id];
     return `- ${sp.positions[i]}: ${DECK[c.id]} ${c.reversed ? `역방향 (키워드: ${rev})` : `정방향 (키워드: ${up})`}`;
   }).join('\n')}`;
-  await streamLLM(res, `${TAROT_INSTRUCTIONS}\n\n[이번 풀이]\n- ${sp.guide}\n- 구성: ${sp.sections}`, input);
+  await streamLLM(res, `${TAROT_INSTRUCTIONS}\n\n[이번 풀이]\n- ${sp.guide}\n- 구성: ${sp.sections}`, input, null, requestMeta(req, spread, true));
 });
 
 app.listen(PORT, () => console.log(`사주 서버 실행: http://localhost:${PORT}`));

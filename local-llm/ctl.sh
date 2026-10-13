@@ -19,7 +19,26 @@ case "$1" in
     if launchctl print $U/com.sajutokki.localllm >/dev/null 2>&1; then echo "연결기: 켜짐"; else echo "연결기: 꺼짐"; fi
     if curl -s -m 2 localhost:11434/api/version >/dev/null; then echo "Ollama: 켜짐"; else echo "Ollama: 꺼짐"; fi
     grep -E "사이트에 연결됨|사이트 연결 실패" $LOG 2>/dev/null | tail -1 | sed 's/^/마지막 연결 상태: /'
-    echo "누적 풀이 수: $(grep -c '풀이 완료' $LOG 2>/dev/null)" ;;
+    python3 - "$HOME/Library/Logs/saju-requests.jsonl" <<'PY'
+import json, sys, collections, datetime
+try:
+    rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+except FileNotFoundError:
+    rows = []
+today = datetime.date.today()
+def local(r): return datetime.datetime.fromisoformat(r['ts'].replace('Z', '+00:00')).astimezone()
+real = [r for r in rows if local(r).date() == today and not r.get('test')]
+tests = sum(1 for r in rows if local(r).date() == today and r.get('test'))
+print(f"\n오늘 풀이: {len(real)}건 · 방문자 {len({r.get('visitor') for r in real})}명" + (f" (테스트 {tests}건 제외)" if tests else ""))
+for k, n in collections.Counter(r.get('kind', '?') for r in real).most_common():
+    print(f"  {k}: {n}건")
+if real:
+    print(f"  평균 {round(sum(r.get('sec', 0) for r in real) / len(real))}초")
+    print("\n최근 요청")
+    for r in real[-5:]:
+        print(f"  {local(r):%H:%M}  {r.get('kind','')}  {r.get('device','')}  방문자 #{r.get('visitor','-')}  {r.get('sec')}초")
+PY
+    ;;
   log)
     echo "실시간 로그 (끄려면 Ctrl+C)"; tail -f $LOG ;;
   *) echo "사용법: $0 on | off | status | log" ;;

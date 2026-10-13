@@ -517,9 +517,10 @@ async function streamSections(res, system, sections, input, onFail, meta = {}) {
       cur++;
     }
   };
+  const rid = crypto.randomBytes(4).toString('hex'); // 맥 쪽 기록에서 한 풀이로 묶기 위한 번호
   const results = await Promise.allSettled(sections.map((sec, i) =>
     generate(`${system}\n\n[이번에 쓸 섹션]\n${sec}\n- 위 섹션 하나만, "## 제목"부터 시작해 끝까지 쓰세요. 다른 섹션은 쓰지 마세요.\n- 위 섹션 설명에 "scores 블록"이 없으면 점수 블록을 넣지 마세요.`, input,
-      t => { bufs[i] += t; if (i === cur) flush(); }, ac.signal, meta)
+      t => { bufs[i] += t; if (i === cur) flush(); }, ac.signal, { ...meta, rid, part: i, parts: sections.length })
       .finally(() => { done[i] = true; if (i === cur) flush(); })));
   if (ac.signal.aborted) return;
   flush();

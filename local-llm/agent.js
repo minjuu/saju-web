@@ -16,6 +16,7 @@ try {
   }
 } catch {}
 const { spawn } = require('child_process');
+const groups = {};
 const STATS_FILE = path.join(require('os').homedir(), 'Library/Logs/saju-requests.jsonl');
 
 const {
@@ -36,12 +37,18 @@ const proxy = http.createServer((req, res) => {
   let meta = {};
   try { meta = JSON.parse(decodeURIComponent(req.headers['x-llm-meta'] || '%7B%7D')); } catch {}
   const who = `${meta.kind || '풀이'}  ${meta.device || ''}  방문자 #${meta.visitor || '-'}${meta.test ? '  (테스트)' : ''}`;
-  console.log(new Date().toLocaleTimeString('ko-KR'), '요청', who);
+  // 사주는 섹션별로 여러 요청이 오므로(rid가 같음) 첫 요청과 마지막 완료만 한 줄씩 남긴다
+  const group = meta.rid ? (groups[meta.rid] ||= { t0, left: meta.parts || 1, ok: true }) : { t0, left: 1, ok: true };
+  if (!meta.rid || meta.part === 0) console.log(new Date().toLocaleTimeString('ko-KR'), '요청', who);
   res.on('finish', () => {
-    const sec = Math.round((Date.now() - t0) / 1000);
-    console.log(new Date().toLocaleTimeString('ko-KR'), '완료', who, `${sec}초`);
-    // 통계용 기록 (ctl.sh status가 읽는다)
-    fs.appendFile(STATS_FILE, JSON.stringify({ ts: new Date().toISOString(), ...meta, sec, status: res.statusCode }) + '\n', () => {});
+    if (res.statusCode >= 400) group.ok = false;
+    if (--group.left > 0) return;
+    if (meta.rid) delete groups[meta.rid];
+    const sec = Math.round((Date.now() - group.t0) / 1000);
+    console.log(new Date().toLocaleTimeString('ko-KR'), group.ok ? '완료' : '실패', who, `${sec}초`);
+    // 통계용 기록 (ctl.sh status가 읽는다) — 풀이 하나당 한 줄
+    const { rid, part, parts, ...rest } = meta;
+    fs.appendFile(STATS_FILE, JSON.stringify({ ts: new Date().toISOString(), ...rest, sec, ok: group.ok }) + '\n', () => {});
   });
   const up = http.request(`${OLLAMA_URL}${req.url}`, { method: 'POST', headers: { 'content-type': 'application/json' } }, upRes => {
     res.writeHead(upRes.statusCode, { 'content-type': upRes.headers['content-type'] || 'text/event-stream' });

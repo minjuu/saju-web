@@ -9,7 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: OPENAI_MODEL
-        value: gpt-5-mini
-      - key: OPENAI_API_KEY
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: GEMINI_API_KEY
         sync: false

@@ -1,17 +1,15 @@
 require('dotenv').config();
 const express = require('express');
-const OpenAI = require('openai');
 const { Solar, Lunar } = require('lunar-javascript');
 
 const {
   PORT = 3000,
-  OPENAI_API_KEY,
-  OPENAI_MODEL = 'gpt-5-mini',
+  GEMINI_API_KEY,
+  GEMINI_MODEL = 'gemini-flash-latest',
 } = process.env;
 
-if (!OPENAI_API_KEY) console.warn('API 키 미설정: 만세력만 사용할 수 있습니다.');
+if (!GEMINI_API_KEY) console.warn('API 키 미설정: 만세력만 사용할 수 있습니다.');
 
-const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 const app = express();
 
 app.use(express.json());
@@ -100,7 +98,7 @@ app.post('/api/saju', (req, res) => {
   }
 });
 
-// ---------- ChatGPT 풀이 (스트리밍) ----------
+// ---------- AI 풀이 (Gemini, 스트리밍) ----------
 const INSTRUCTIONS = `당신은 30년 경력의 한국 명리학자입니다. 제공된 사주팔자 데이터(이미 정확히 계산됨)를 바탕으로 풀이하세요.
 - 계산 결과를 다시 계산하거나 바꾸지 말고 그대로 사용하세요.
 - 일간의 강약, 오행의 균형, 십신 구성, 용신(추정)을 근거로 설명하세요.
@@ -110,7 +108,7 @@ const INSTRUCTIONS = `당신은 30년 경력의 한국 명리학자입니다. �
 - 의료·법률·투자 판단은 전문가 상담을 권하세요.`;
 
 app.post('/api/reading', async (req, res) => {
-  if (!openai) return res.status(503).json({ error: 'AI 해석을 사용할 수 없습니다. 서버에 OPENAI_API_KEY가 설정되지 않았습니다.' });
+  if (!GEMINI_API_KEY) return res.status(503).json({ error: 'AI 해석을 사용할 수 없습니다. 서버에 GEMINI_API_KEY가 설정되지 않았습니다.' });
   const err = validate(req.body);
   if (err) return res.status(400).json({ error: err });
 
@@ -127,17 +125,36 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
   const ac = new AbortController();
   res.on('close', () => ac.abort());
   try {
-    const stream = await openai.responses.create(
-      { model: OPENAI_MODEL, instructions: INSTRUCTIONS, input, stream: true },
-      { signal: ac.signal },
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: INSTRUCTIONS }] },
+          contents: [{ role: 'user', parts: [{ text: input }] }],
+        }),
+        signal: ac.signal,
+      },
     );
-    for await (const ev of stream) {
-      if (ev.type === 'response.output_text.delta') res.write(ev.delta);
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    // SSE: "data: {...}" 줄마다 응답 조각이 온다
+    const dec = new TextDecoder();
+    let buf = '';
+    for await (const chunk of r.body) {
+      buf += dec.decode(chunk, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const parts = JSON.parse(line.slice(6)).candidates?.[0]?.content?.parts || [];
+        for (const p of parts) if (p.text && !p.thought) res.write(p.text);
+      }
     }
     res.end();
   } catch (e) {
     if (ac.signal.aborted) return;
-    console.error('OpenAI 오류:', e.message);
+    console.error('Gemini 오류:', e.message);
     res.end('\n\n해석 생성 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
   }
 });

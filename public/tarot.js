@@ -41,11 +41,41 @@
     shown = ids.slice(0, SHOWN).map(id => ({ id, reversed: crypto.getRandomValues(new Uint8Array(1))[0] < 128 }));
     picked = [];
     render();
+    animateShuffle();
     $('#tarotResultCard').classList.add('hidden');
     $('#tarotError').textContent = '';
   }
 
   // 카드 이미지: Rider-Waite-Smith (1909, 퍼블릭 도메인) — Wikimedia Commons
+  // 섞는 모습: 카드가 가운데로 모였다가 좌우로 엇갈려 섞인 뒤 한 장씩 제자리로 돌아간다
+  let shuffling = false;
+  function animateShuffle() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const deck = $('#deck');
+    const cards = [...deck.children];
+    const d = deck.getBoundingClientRect();
+    if (!d.width) return; // 화면에 안 보이는 상태
+    const cx = d.left + d.width / 2, cy = d.top + d.height / 2;
+    shuffling = true;
+    let done = 0;
+    cards.forEach((c, i) => {
+      const r = c.getBoundingClientRect();
+      const dx = cx - (r.left + r.width / 2), dy = cy - (r.top + r.height / 2);
+      const side = (i % 2 ? 1 : -1) * (28 + Math.random() * 26);
+      const rot = (Math.random() - 0.5) * 24;
+      const at = (x, y, deg) => `translate(${x}px, ${y}px) rotate(${deg}deg)`;
+      const anim = c.animate([
+        { transform: at(dx, dy, 0), offset: 0 },
+        { transform: at(dx + side, dy - 4, rot), offset: 0.18 },
+        { transform: at(dx - side, dy + 4, -rot), offset: 0.36 },
+        { transform: at(dx + side / 2, dy, rot / 2), offset: 0.5 },
+        { transform: at(dx, dy, 0), offset: 0.6 },
+        { transform: 'none', offset: 1 },
+      ], { duration: 1300 + i * 22, easing: 'ease-in-out' });
+      anim.onfinish = anim.oncancel = () => { if (++done === cards.length) shuffling = false; };
+    });
+  }
+
   const face = c => `<div class="tc-face${c.reversed ? ' rev' : ''}"><img src="/tarot/${c.id}.jpg" alt="${DECK[c.id].name}"></div>`;
 
   function render() {
@@ -69,14 +99,14 @@
 
   $('#deck').onclick = e => {
     const b = e.target.closest('.dcard');
-    if (!b || busy) return;
+    if (!b || busy || shuffling) return;
     const c = shown[b.dataset.i];
     if (picked.includes(c) || picked.length >= SPREADS[spread].positions.length) return;
     picked.push(c);
     justPicked = picked.length - 1;
     render();
   };
-  $('#reshuffle').onclick = () => { if (!busy) shuffle(); };
+  $('#reshuffle').onclick = () => { if (!busy && !shuffling) shuffle(); };
 
   $('#tarotGo').onclick = async () => {
     const sp = SPREADS[spread];
@@ -127,6 +157,7 @@
     $('#tarotQ').value = '';
     $('#tarotQ').placeholder = sp.placeholder || '';
     shuffle();
+    requestAnimationFrame(() => requestAnimationFrame(animateShuffle)); // 화면이 보인 뒤 섞는 모습을 보여준다
     return true;
   };
   if (location.hash.startsWith('#/tarot/')) window.dispatchEvent(new HashChangeEvent('hashchange'));

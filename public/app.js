@@ -233,6 +233,7 @@ function renderReport(out, text) {
     box.innerHTML = scoresHtml(parseScores(code.textContent));
     code.parentElement.replaceWith(box);
   });
+  tmp.querySelectorAll('hr').forEach(h => h.remove());
   const sections = [];
   let cur = null;
   for (const node of [...tmp.childNodes]) {
@@ -240,6 +241,9 @@ function renderReport(out, text) {
     if (!cur) { cur = { title: '', nodes: [] }; sections.push(cur); }
     cur.nodes.push(node);
   }
+  // 편지(한마디)는 항상 맨 끝에 둔다
+  const li = sections.findIndex(s => s.title.includes('한마디'));
+  if (li >= 0 && li < sections.length - 1) sections.push(sections.splice(li, 1)[0]);
   const titled = sections.filter(s => s.title);
   out.innerHTML = (titled.length > 1 ? `<nav class="rp-tabs">${titled.map((s, i) =>
     `<button type="button" data-i="${i}" class="${i === reportTab ? 'on' : ''}">${esc(s.title)}</button>`).join('')}</nav>` : '') +

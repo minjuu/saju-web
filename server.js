@@ -210,7 +210,8 @@ const INSTRUCTIONS = `당신은 한국 전통 명리학에 밝은 상담가입�
 \`\`\`scores
 표현력|45|말수는 적지만 깊이 있는 표현은 한 번에 전달돼요.
 \`\`\`
-- 마지막 "## 사주토끼의 한마디"는 이름을 부르며 시작하는 3~4문장짜리 짧은 편지로, "###" 없이 쓰세요.`;
+- "## 사주토끼의 한마디"는 항상 맨 마지막 섹션이며, 이름을 부르며 시작하는 3~4문장짜리 짧은 편지로 "###" 없이 쓰세요.
+- 구분선(---)은 쓰지 마세요.`;
 
 // 홈 화면 카드별 풀이 구성
 const TOPICS = {
@@ -345,7 +346,7 @@ ${name ? `이름: ${name}\n` : ''}사주 데이터:
 ${JSON.stringify(saju, null, 2)}
 ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
-  const sections = TOPICS[topic](Number(today().slice(0, 4))) + (req.body.question ? '\n## 질문에 대한 답변 (### 답변) — 사주토끼의 한마디 바로 앞에' : '');
+  const sections = TOPICS[topic](Number(today().slice(0, 4))) + (req.body.question ? '\n## 질문에 대한 답변 (### 답변) — 사주토끼의 한마디 바로 앞에 둘 것' : '');
   await streamLLM(res, `${INSTRUCTIONS}\n\n[구성]\n${sections}`, input, () => LIMIT && refundQuota(user.id));
 });
 

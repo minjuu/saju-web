@@ -3,24 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>사주토끼 — 당신의 운세를 깡총, 들여다봐요</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<title>사주토끼</title>
+<meta name="description" content="생년월일시로 사주팔자를 계산하고 AI가 해석합니다.">
+<link rel="icon" href="/rabbit.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <main>
-  <header class="nav"><a class="brand" href="/">사주토끼<span>SAJU TOKKI</span></a><span class="nav-note">당신 곁의 작은 운세 친구</span><a class="nav-link" href="#form">내 사주 알아보기 <span>↗</span></a></header>
-  <section class="hero">
-    <div class="hero-copy"><div class="eyebrow"><span></span> A LITTLE HOP INTO YOUR STORY</div><h1>당신의 운세를 깡총,<br><em>들여다봐요.</em></h1><p>태어난 순간에 담긴 나만의 흐름.<br>사주토끼와 함께, 나를 조금 더 깊이 이해해 보세요.</p><div class="hero-tags"><span>✦ 나의 타고난 성향</span><span>✧ 관계와 일의 흐름</span><span>✦ 올해의 운세</span></div></div>
-    <div class="universe" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="planet"></div><svg class="rabbit" viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="72" cy="66" rx="20" ry="51" transform="rotate(-13 72 66)" fill="#FFFDFA" stroke="#C5B4D9" stroke-width="2"/><ellipse cx="129" cy="63" rx="20" ry="51" transform="rotate(12 129 63)" fill="#FFFDFA" stroke="#C5B4D9" stroke-width="2"/><ellipse cx="72" cy="64" rx="8" ry="32" transform="rotate(-13 72 64)" fill="#EAD8E6"/><ellipse cx="129" cy="61" rx="8" ry="32" transform="rotate(12 129 61)" fill="#EAD8E6"/><ellipse cx="100" cy="159" rx="64" ry="59" fill="#FFFDFA" stroke="#C5B4D9" stroke-width="2"/><ellipse cx="64" cy="169" rx="12" ry="7" fill="#F3D5DE"/><ellipse cx="136" cy="169" rx="12" ry="7" fill="#F3D5DE"/><ellipse cx="78" cy="151" rx="4" ry="6" fill="#645274"/><ellipse cx="122" cy="151" rx="4" ry="6" fill="#645274"/><path d="M96 164Q100 160 104 164L100 169Z" fill="#B888A1"/><path d="M89 173Q95 180 100 171Q105 180 111 173" stroke="#927A9B" stroke-width="2" stroke-linecap="round"/></svg><span class="star star-one">✦</span><span class="star star-two">✧</span><span class="star star-three">✦</span><span class="orbit-label">EVERY MOMENT HAS A MEANING</span><span class="planet-label">당신의 운세 친구, 사주토끼</span></div>
-  </section>
-  <div class="workspace"><aside class="intro"><div class="eyebrow">YOUR PERSONAL READING</div><h2>나의 이야기는<br>언제 시작됐나요?</h2><p>태어난 날과 시간을 알려주세요.<br>나만의 사주 이야기를 들려드릴게요.</p><div class="steps"><div><span>01</span><p><b>태어난 순간</b><small>생년월일과 시간 입력</small></p></div><div><span>02</span><p><b>나를 이루는 여덟 글자</b><small>사주팔자와 오행 살펴보기</small></p></div><div><span>03</span><p><b>나에게 전하는 이야기</b><small>AI가 풀어주는 나의 흐름</small></p></div></div><div class="aside-note">✧ &nbsp;정해진 답보다, 새로운 시선으로.<br><span>사주는 나를 돌아보는 가벼운 참고로 즐겨주세요.</span></div></aside><div class="content">
-
-
-  <form class="card" id="form"><div class="form-heading"><h2>태어난 순간을 알려주세요</h2><span>01 / 03</span></div><p class="form-subtitle">입력한 정보를 바탕으로 나만의 풀이가 시작돼요.</p>
+  <header class="hero">
+    <img src="/rabbit.png" alt="">
+    <div>
+      <h1>사주토끼</h1>
+      <p>생년월일과 태어난 시간으로 사주팔자를 계산하고, AI가 해석합니다.</p>
+    </div>
+  </header>
+  <form class="card" id="form"><h2>정보 입력</h2>
     <div class="grid">
       <div><label>달력</label>
         <div class="seg">
@@ -43,13 +43,14 @@
     <div style="margin-top:14px"><label for="question">궁금한 점 (선택)</label>
       <textarea id="question" rows="2" maxlength="300" placeholder="예) 올해 이직해도 괜찮을까요?"></textarea>
     </div>
-    <button class="primary" id="submit">나의 사주 이야기 펼치기 <span>↗</span></button><p class="form-footnote">✧ &nbsp; 로그인 없이, 나에게 집중하는 시간</p>
+    <button class="primary" id="submit">사주 보기</button>
     <div class="error" id="error" role="alert"></div>
   </form>
 
-  <section class="card hidden" id="chart"></section>
-  <section class="card hidden" id="readingCard"><div class="result-label">✦ &nbsp; 나에게 전하는 이야기</div><div id="reading" aria-live="polite"></div></section>
-</div></div><footer><a class="brand" href="/">사주토끼<span>SAJU TOKKI</span></a><p>당신의 운세를 깡총, 들여다봐요.</p><span>만세력 × AI 해석</span></footer></main>
+  <section class="card hidden" id="chart"><h2>사주팔자</h2><div id="chartBody"></div></section>
+  <section class="card hidden" id="readingCard"><h2>해석</h2><div id="reading" aria-live="polite"></div></section>
+  <footer>사주 해석은 참고용입니다.</footer>
+</main>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -77,7 +78,7 @@ function renderChart(s) {
   const cols = [['time', '시주'], ['day', '일주'], ['month', '월주'], ['year', '연주']];
   const max = Math.max(...Object.values(s.elements), 1);
   const color = { 목: 'var(--wood)', 화: 'var(--fire)', 토: 'var(--earth)', 금: 'var(--metal)', 수: 'var(--water)' };
-  $('#chart').innerHTML = `
+  $('#chartBody').innerHTML = `
     <div class="meta">양력 ${s.solarDate} · 음력 ${s.lunarDate} · 일간 <b>${s.dayMaster}</b></div>
     <div class="pillars">${cols.map(([k, name]) => `<div class="pillar"><div class="head">${name}</div>
       ${cell(s.pillars[k], 'stem')}${cell(s.pillars[k], 'branch')}</div>`).join('')}</div>
@@ -93,7 +94,7 @@ $('#form').onsubmit = async e => {
   const body = payload();
   const btn = $('#submit');
   btn.disabled = true;
-  btn.textContent = '나의 이야기를 읽고 있어요…';
+  btn.textContent = '계산 중…';
   try {
     const r = await fetch('/api/saju', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const s = await r.json();
@@ -117,7 +118,7 @@ $('#form').onsubmit = async e => {
     $('#error').textContent = err.message;
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '나의 사주 이야기 펼치기 <span>↗</span>';
+    btn.textContent = '사주 보기';
     $('#reading').classList.remove('loading');
   }
 };

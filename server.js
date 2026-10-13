@@ -105,11 +105,12 @@ const INSTRUCTIONS = `당신은 30년 경력의 한국 명리학자입니다. �
 - 계산 결과를 다시 계산하거나 바꾸지 말고 그대로 사용하세요.
 - 일간의 강약, 오행의 균형, 십신 구성, 용신(추정)을 근거로 설명하세요.
 - 구성: ## 타고난 성향 / ## 오행 균형과 보완법 / ## 재물운 / ## 직업·적성 / ## 연애·관계 / ## 건강 / ## 대운 흐름 / ## 올해의 운세 (사용자 질문이 있으면 마지막에 ## 질문에 대한 답변 추가)
-- 따뜻하고 구체적으로, 단정적인 공포 조장은 피하세요. 마크다운으로 작성하세요.
+- 담백한 존댓말(~합니다)로 간결하게 쓰세요. 감성적 수사, 이모지, 과장된 위로·칭찬은 쓰지 마세요.
+- 근거(오행·십신)를 짧게 밝히고 구체적으로 쓰되, 단정적인 공포 조장은 피하세요. 마크다운으로 작성하세요.
 - 의료·법률·투자 판단은 전문가 상담을 권하세요.`;
 
 app.post('/api/reading', async (req, res) => {
-  if (!openai) return res.status(503).json({ error: '만세력은 준비됐어요. AI 풀이를 보려면 서버의 .env 파일에 OPENAI_API_KEY를 입력한 뒤 서버를 다시 시작해주세요.' });
+  if (!openai) return res.status(503).json({ error: 'AI 해석을 사용할 수 없습니다. 서버에 OPENAI_API_KEY가 설정되지 않았습니다.' });
   const err = validate(req.body);
   if (err) return res.status(400).json({ error: err });
 
@@ -137,7 +138,7 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
   } catch (e) {
     if (ac.signal.aborted) return;
     console.error('OpenAI 오류:', e.message);
-    res.end('\n\n⚠️ 풀이 생성 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.');
+    res.end('\n\n해석 생성 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
   }
 });
 

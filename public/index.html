@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>결 — 나를 읽는 사주</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <header class="nav"><a class="brand" href="/">결<span>GYEOL</span></a><span class="nav-note">나를 알아가는 작은 시작</span><a class="nav-link" href="#form">내 사주 알아보기 <span>↗</span></a></header>
+  <section class="hero">
+    <div class="hero-copy"><div class="eyebrow"><span></span> A LITTLE CLOSER TO YOURSELF</div><h1>당신이라는 우주,<br>그 안에 담긴 <em>결.</em></h1><p>태어난 순간에 담긴 나만의 흐름.<br>사주와 AI의 시선으로, 나를 조금 더 깊이 이해해 보세요.</p><div class="hero-tags"><span>✦ 나의 타고난 성향</span><span>✧ 관계와 일의 흐름</span><span>✦ 올해의 운세</span></div></div>
+    <div class="universe" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="planet"></div><span class="star star-one">✦</span><span class="star star-two">✧</span><span class="star star-three">✦</span><span class="orbit-label">EVERY MOMENT HAS A MEANING</span><span class="planet-label">나의 작은 우주</span></div>
+  </section>
+  <div class="workspace"><aside class="intro"><div class="eyebrow">YOUR PERSONAL READING</div><h2>나의 이야기는<br>언제 시작됐나요?</h2><p>태어난 날과 시간을 알려주세요.<br>나만의 사주 이야기를 들려드릴게요.</p><div class="steps"><div><span>01</span><p><b>태어난 순간</b><small>생년월일과 시간 입력</small></p></div><div><span>02</span><p><b>나를 이루는 여덟 글자</b><small>사주팔자와 오행 살펴보기</small></p></div><div><span>03</span><p><b>나에게 전하는 이야기</b><small>AI가 풀어주는 나의 흐름</small></p></div></div><div class="aside-note">✧ &nbsp;정해진 답보다, 새로운 시선으로.<br><span>사주는 나를 돌아보는 가벼운 참고로 즐겨주세요.</span></div></aside><div class="content">
+
+
+  <form class="card" id="form"><div class="form-heading"><h2>태어난 순간을 알려주세요</h2><span>01 / 03</span></div><p class="form-subtitle">입력한 정보를 바탕으로 나만의 풀이가 시작돼요.</p>
+    <div class="grid">
+      <div><label>달력</label>
+        <div class="seg">
+          <label><input type="radio" name="calendar" value="solar" checked>양력</label>
+          <label><input type="radio" name="calendar" value="lunar">음력</label>
+        </div>
+        <label class="check hidden" id="leapWrap"><input type="checkbox" name="leapMonth">윤달</label>
+      </div>
+      <div><label>성별</label>
+        <div class="seg">
+          <label><input type="radio" name="gender" value="female" checked>여성</label>
+          <label><input type="radio" name="gender" value="male">남성</label>
+        </div>
+      </div>
+      <div><label for="date">생년월일</label><input type="date" id="date" required min="1900-01-01" max="2100-12-31" value="1995-01-01"></div>
+      <div><label for="time">태어난 시간</label><input type="time" id="time" value="12:00">
+        <label class="check"><input type="checkbox" name="timeUnknown">시간 모름</label>
+      </div>
+    </div>
+    <div style="margin-top:14px"><label for="question">궁금한 점 (선택)</label>
+      <textarea id="question" rows="2" maxlength="300" placeholder="예) 올해 이직해도 괜찮을까요?"></textarea>
+    </div>
+    <button class="primary" id="submit">나의 사주 이야기 펼치기 <span>↗</span></button><p class="form-footnote">✧ &nbsp; 로그인 없이, 나에게 집중하는 시간</p>
+    <div class="error" id="error" role="alert"></div>
+  </form>
+
+  <section class="card hidden" id="chart"></section>
+  <section class="card hidden" id="readingCard"><div class="result-label">✦ &nbsp; 나에게 전하는 이야기</div><div id="reading" aria-live="polite"></div></section>
+</div></div><footer><a class="brand" href="/">결<span>GYEOL</span></a><p>나를 이해하는 또 하나의 방법.</p><span>만세력 × AI 해석</span></footer></main>
+
+<script>
+const $ = s => document.querySelector(s);
+document.querySelectorAll('input[name=calendar]').forEach(el => el.onchange = () =>
+  $('#leapWrap').classList.toggle('hidden', $('input[name=calendar]:checked').value !== 'lunar'));
+document.querySelector('input[name=timeUnknown]').onchange = e => $('#time').disabled = e.target.checked;
+
+function payload() {
+  const [year, month, day] = $('#date').value.split('-').map(Number);
+  const [hour, minute] = ($('#time').value || '12:00').split(':').map(Number);
+  return {
+    calendar: $('input[name=calendar]:checked').value,
+    leapMonth: document.querySelector('input[name=leapMonth]').checked,
+    gender: $('input[name=gender]:checked').value,
+    year, month, day, hour, minute,
+    timeUnknown: document.querySelector('input[name=timeUnknown]').checked,
+    question: $('#question').value.trim(),
+  };
+}
+
+function renderChart(s) {
+  const cell = (p, part) => p
+    ? `<div class="char e-${p[part].element}">${p[part].hanja}<span>${p[part].korean} · ${p[part].element}</span></div><div class="god">${p[part].tenGod}</div>`
+    : `<div class="char empty">?<span>모름</span></div><div class="god">&nbsp;</div>`;
+  const cols = [['time', '시주'], ['day', '일주'], ['month', '월주'], ['year', '연주']];
+  const max = Math.max(...Object.values(s.elements), 1);
+  const color = { 목: 'var(--wood)', 화: 'var(--fire)', 토: 'var(--earth)', 금: 'var(--metal)', 수: 'var(--water)' };
+  $('#chart').innerHTML = `
+    <div class="meta">양력 ${s.solarDate} · 음력 ${s.lunarDate} · 일간 <b>${s.dayMaster}</b></div>
+    <div class="pillars">${cols.map(([k, name]) => `<div class="pillar"><div class="head">${name}</div>
+      ${cell(s.pillars[k], 'stem')}${cell(s.pillars[k], 'branch')}</div>`).join('')}</div>
+    <div class="bars">${Object.entries(s.elements).map(([e, n]) =>
+      `<div class="bar"><div style="background:${color[e]};opacity:${0.25 + 0.75 * n / max}"></div>${e} ${n}</div>`).join('')}</div>
+    <div class="daeun">${s.daeun.map(d => `<div><b>${d.hanja}</b>${d.ganZhi}<br>${d.startAge}세</div>`).join('')}</div>`;
+  $('#chart').classList.remove('hidden');
+}
+
+$('#form').onsubmit = async e => {
+  e.preventDefault();
+  $('#error').textContent = '';
+  const body = payload();
+  const btn = $('#submit');
+  btn.disabled = true;
+  btn.textContent = '나의 이야기를 읽고 있어요…';
+  try {
+    const r = await fetch('/api/saju', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const s = await r.json();
+    if (!r.ok) throw new Error(s.error);
+    renderChart(s);
+    const out = $('#reading');
+    out.innerHTML = ''; out.classList.add('loading');
+    $('#readingCard').classList.remove('hidden');
+    const res = await fetch('/api/reading', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) { out.classList.remove('loading'); throw new Error((await res.json()).error); }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let text = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += dec.decode(value, { stream: true });
+      out.classList.remove('loading');
+      out.innerHTML = DOMPurify.sanitize(marked.parse(text));
+    }
+  } catch (err) {
+    $('#error').textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '나의 사주 이야기 펼치기 <span>↗</span>';
+    $('#reading').classList.remove('loading');
+  }
+};
+
+</script>
+</body>
+</html>

@@ -132,7 +132,7 @@
         if (done) break;
         text += dec.decode(value, { stream: true });
         stopLoading();
-        out.innerHTML = DOMPurify.sanitize(marked.parse(text));
+        out.innerHTML = DOMPurify.sanitize(marked.parse(mdPrep(text)));
         boldQuotes(out);
       }
     } catch (err) {

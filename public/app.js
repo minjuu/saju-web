@@ -201,6 +201,9 @@ window.boldQuotes = root => {
   }
 };
 
+// 한글·따옴표 바로 옆의 **굵게**는 마크다운 규칙상 인식이 안 되는 경우가 많아, 파싱 전에 직접 <strong>으로 바꾼다
+window.mdPrep = text => text.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+
 // ---------- 풀이 리포트 ----------
 // 서버(모델)는 "## 섹션 / ### 소제목 / ```scores``` 블록" 형식의 마크다운을 스트리밍한다.
 // 이를 섹션 탭 + 섹션 카드 + 라벨 + 능력치 차트로 바꿔 그린다. 글자가 올 때마다 다시 그린다
@@ -249,9 +252,16 @@ const emojiFor = t => EMOJI.find(([k]) => t.includes(k))?.[1] || '';
 let reportTab = 0;
 function renderReport(out, text) {
   const tmp = document.createElement('div');
-  tmp.innerHTML = DOMPurify.sanitize(marked.parse(text));
+  tmp.innerHTML = DOMPurify.sanitize(marked.parse(mdPrep(text)));
+  // 모델이 ####로 쓴 소제목도 라벨로 보이게
+  tmp.querySelectorAll('h4, h5').forEach(h => { const h3 = document.createElement('h3'); h3.innerHTML = h.innerHTML; h.replaceWith(h3); });
   // 모델이 구성 안내("— 설명")까지 제목에 붙이는 경우가 있어 잘라낸다
-  tmp.querySelectorAll('h2, h3').forEach(h => { h.textContent = h.textContent.split(/\s+[—–-]\s+/)[0].trim(); });
+  tmp.querySelectorAll('h2, h3').forEach(h => {
+    h.textContent = h.textContent
+      .replace(/\s*\([^)]*#.*$/, '')     // "(### 답변 …" 같은 구성 안내
+      .replace(/\s*#+\s.*$/, '')          // 제목 안에 남은 "### …"
+      .split(/\s+[—–-]\s+/)[0].replace(/\*\*/g, '').trim();
+  });
   tmp.querySelectorAll('pre > code.language-scores').forEach(code => {
     const items = parseScores(code.textContent);
     // 스트리밍 중이거나 항목이 너무 적은 점수 블록은 그래프 대신 숨긴다

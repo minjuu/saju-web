@@ -221,6 +221,18 @@ function scoresHtml(items) {
     <div class="score-top"><b>${esc(it.name)}</b><span class="score-bar"><i style="width:${it.v}%"></i></span><em>${it.v}</em></div>
     ${it.desc ? `<p>${esc(it.desc)}</p>` : ''}</div>`).join('');
 }
+// 섹션·라벨 제목 앞에 붙일 이모지 (제목에 들어 있는 단어로 고른다)
+const EMOJI = [
+  ['한 줄 요약', '📝'], ['성격', '🧠'], ['배우자', '💍'], ['사람 관계', '🤝'], ['답변', '💬'], ['안 맞는', '🚫'], ['가까워지는', '💓'],
+  ['무의식', '🌑'], ['반복되는 흐름', '🔁'], ['총평', '📝'], ['이렇게', '🧭'], ['돈이 들어오는', '💰'],
+  ['한마디', '💌'], ['질문', '💬'], ['능력치', '📊'], ['점수', '📊'], ['연애 성향', '💞'], ['인연', '🔮'],
+  ['연애 흐름', '🌊'], ['패턴', '🌗'], ['잘 맞는 사람', '🧪'], ['타고난', '🔥'], ['일과 돈', '💼'],
+  ['사랑과 관계', '💞'], ['앞으로', '🧭'], ['한눈에', '✨'], ['계절별', '🗓️'], ['분야별', '🧩'], ['주의할 시기', '⚠️'],
+  ['봄', '🌸'], ['여름', '☀️'], ['가을', '🍂'], ['겨울', '❄️'], ['핵심', '💎'], ['솔로', '💫'], ['연애 중', '💑'],
+  ['매력', '✨'], ['조심', '⚠️'], ['약점', '⚠️'], ['강점', '💪'], ['스타일', '💗'], ['바꾸는 방법', '🛠️'],
+  ['돈', '💰'], ['일', '💼'], ['건강', '🌿'], ['키워드', '🔑'],
+];
+const emojiFor = t => EMOJI.find(([k]) => t.includes(k))?.[1] || '';
 let reportTab = 0;
 function renderReport(out, text) {
   const tmp = document.createElement('div');
@@ -234,6 +246,7 @@ function renderReport(out, text) {
     code.parentElement.replaceWith(box);
   });
   tmp.querySelectorAll('hr').forEach(h => h.remove());
+  tmp.querySelectorAll('h3').forEach(h => { const e = emojiFor(h.textContent); if (e) h.textContent = `${e} ${h.textContent}`; });
   const sections = [];
   let cur = null;
   for (const node of [...tmp.childNodes]) {
@@ -246,11 +259,11 @@ function renderReport(out, text) {
   if (li >= 0 && li < sections.length - 1) sections.push(sections.splice(li, 1)[0]);
   const titled = sections.filter(s => s.title);
   out.innerHTML = (titled.length > 1 ? `<nav class="rp-tabs">${titled.map((s, i) =>
-    `<button type="button" data-i="${i}" class="${i === reportTab ? 'on' : ''}">${esc(s.title)}</button>`).join('')}</nav>` : '') +
+    `<button type="button" data-i="${i}" class="${i === reportTab ? 'on' : ''}">${emojiFor(s.title)} ${esc(s.title)}</button>`).join('')}</nav>` : '') +
     sections.map(s => {
       const i = titled.indexOf(s);
       const letter = s.title.includes('한마디') ? ' rp-letter' : '';
-      return `<section class="rp-sec card${letter}" ${i >= 0 ? `id="rp-${i}"` : ''}>${s.title ? `<h2>${esc(s.title)}</h2>` : ''}<div class="rp-body"></div></section>`;
+      return `<section class="rp-sec card${letter}" ${i >= 0 ? `id="rp-${i}"` : ''}>${s.title ? `<h2>${emojiFor(s.title)} ${esc(s.title)}</h2>` : ''}<div class="rp-body"></div></section>`;
     }).join('');
   out.querySelectorAll('.rp-body').forEach((body, i) => sections[i].nodes.forEach(n => body.appendChild(n)));
 }

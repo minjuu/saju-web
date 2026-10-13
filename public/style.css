@@ -241,7 +241,6 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 .rp-body p { margin: 0 0 4px; }
 .rp-body strong { color: var(--accent); }
 .rp-letter { background: #f6efe1; border-color: #eadfc8; }
-.rp-letter > h2::before { content: '兎 '; color: #b08a4a; }
 
 .scores .radar { display: block; width: 100%; max-width: 320px; margin: 0 auto 10px; }
 .radar .grid polygon, .radar .grid line { fill: none; stroke: var(--line); stroke-width: 1; }

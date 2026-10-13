@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 410">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d2340"/>
+      <stop offset=".5" stop-color="#2a2f57"/>
+      <stop offset="1" stop-color="#1d2340"/>
+    </linearGradient>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="8" cy="8" r="1" fill="#d8b86a" opacity=".35"/>
+    </pattern>
+    <g id="star"><path d="M0-7 1.6-1.6 7 0 1.6 1.6 0 7-1.6 1.6-7 0-1.6-1.6Z" fill="#e9cf8a"/></g>
+  </defs>
+  <rect width="240" height="410" rx="14" fill="url(#bg)"/>
+  <rect x="10" y="10" width="220" height="390" rx="9" fill="url(#dots)"/>
+  <rect x="10" y="10" width="220" height="390" rx="9" fill="none" stroke="#d8b86a" stroke-width="2"/>
+  <rect x="18" y="18" width="204" height="374" rx="6" fill="none" stroke="#d8b86a" stroke-width=".8" opacity=".7"/>
+  <!-- 가운데: 해와 초승달 -->
+  <circle cx="120" cy="205" r="54" fill="none" stroke="#d8b86a" stroke-width="1.2"/>
+  <circle cx="120" cy="205" r="62" fill="none" stroke="#d8b86a" stroke-width=".6" opacity=".6" stroke-dasharray="2 4"/>
+  <g stroke="#d8b86a" stroke-width="1.2" opacity=".85">
+    <path d="M120 131v-14M120 293v-14M46 205h-14M208 205h-14M68 153l-10-10M182 267l-10-10M172 153l10-10M58 267l10-10"/>
+  </g>
+  <path d="M138 172a36 36 0 1 0 0 66a30 30 0 1 1 0-66Z" fill="#e9cf8a"/>
+  <use href="#star" x="140" y="205" transform="scale(1)"/>
+  <!-- 위아래 대칭 장식 -->
+  <g fill="none" stroke="#d8b86a" stroke-width="1.2">
+    <path d="M90 60q30-24 60 0q-30 24-60 0Z"/>
+    <path d="M90 350q30-24 60 0q-30 24-60 0Z"/>
+  </g>
+  <use href="#star" x="120" y="60"/>
+  <use href="#star" x="120" y="350"/>
+  <use href="#star" x="44" y="44" transform="translate(0 0)"/>
+  <use href="#star" x="196" y="44"/>
+  <use href="#star" x="44" y="366"/>
+  <use href="#star" x="196" y="366"/>
+</svg>

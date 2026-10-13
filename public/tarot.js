@@ -87,7 +87,7 @@
     $('#tarotGo').disabled = true;
     $('#tarotGo').textContent = '풀이 작성 중…';
     const out = $('#tarotResult');
-    out.innerHTML = ''; out.classList.add('loading');
+    const stopLoading = startLoading(out, 'tarot');
     $('#tarotResultCard').classList.remove('hidden');
     try {
       const res = await fetch('/api/tarot', {
@@ -101,14 +101,14 @@
         const { value, done } = await reader.read();
         if (done) break;
         text += dec.decode(value, { stream: true });
-        out.classList.remove('loading');
+        stopLoading();
         out.innerHTML = DOMPurify.sanitize(marked.parse(text));
       }
     } catch (err) {
       $('#tarotError').textContent = err.message;
     } finally {
       busy = false;
-      out.classList.remove('loading');
+      stopLoading();
       $('#tarotGo').textContent = '풀이 보기';
       render();
     }

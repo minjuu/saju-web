@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { Solar, Lunar } = require('lunar-javascript');
+const { Solar, Lunar, LunarUtil } = require('lunar-javascript');
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -52,12 +52,58 @@ const ko = s => [...s].map(c => KO[c] || c).join('');
 
 function pillar(ganZhi, ganGod, zhiGods) {
   const [g, z] = [...ganZhi];
+  const hidden = LunarUtil.ZHI_HIDE_GAN[z];
   return {
     hanja: ganZhi,
     korean: ko(ganZhi),
     stem: { hanja: g, korean: KO[g], element: ELEMENT[g], tenGod: TEN_GODS[ganGod] || ganGod },
     branch: { hanja: z, korean: KO[z], element: ELEMENT[z], tenGod: TEN_GODS[zhiGods[0]] || zhiGods[0] },
+    // 지장간: 지지 속에 숨은 천간 (첫 번째가 본기)
+    hiddenStems: hidden.map((h, i) => `${h}${KO[h]}${ELEMENT[h]}(${TEN_GODS[zhiGods[i]] || zhiGods[i]})`).join(', '),
   };
+}
+
+// 일간 기준 십신
+const tenGodOf = (dayStem, stem) => TEN_GODS[LunarUtil.SHI_SHEN[dayStem + stem]] || '';
+const STEMS = '甲乙丙丁戊己庚辛壬癸';
+const BRANCHES = '子丑寅卯辰巳午未申酉戌亥';
+const yearGanZhi = y => STEMS[(y - 4) % 10] + BRANCHES[(y - 4) % 12];
+
+// 지지 사이의 충·합 (원국끼리, 또는 운에서 들어오는 지지와 원국 사이)
+const CHUNG = ['子午', '丑未', '寅申', '卯酉', '辰戌', '巳亥'];
+const YUKHAP = ['子丑', '寅亥', '卯戌', '辰酉', '巳申', '午未'];
+const SAMHAP = [['申子辰', '수'], ['亥卯未', '목'], ['寅午戌', '화'], ['巳酉丑', '금']];
+const PILLAR_KO = { year: '년지', month: '월지', day: '일지', time: '시지' };
+const pairIn = (list, a, b) => list.find(p => p === a + b || p === b + a);
+function natalRelations(pillars) {
+  const bs = Object.entries(pillars).filter(([, p]) => p).map(([k, p]) => [PILLAR_KO[k], p.branch.hanja]);
+  const out = [];
+  for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) {
+    const [[n1, a], [n2, b]] = [bs[i], bs[j]];
+    { const p = pairIn(CHUNG, a, b); if (p) out.push(`${n1} ${a}${KO[a]}와 ${n2} ${b}${KO[b]}의 ${p}충`); }
+    { const p = pairIn(YUKHAP, a, b); if (p) out.push(`${n1} ${a}${KO[a]}와 ${n2} ${b}${KO[b]}의 ${p}합(육합)`); }
+  }
+  const set = new Set(bs.map(([, b]) => b));
+  for (const [three, el] of SAMHAP) {
+    const have = [...three].filter(c => set.has(c));
+    if (have.length === 3) out.push(`${three} 삼합 ${el}국 성립`);
+    else if (have.length === 2 && have.includes(three[1])) out.push(`${have.join('')} 반합(${three} 삼합 ${el}국의 일부)`);
+  }
+  return out;
+}
+function incomingRelations(pillars, branch) {
+  const out = [];
+  for (const [k, p] of Object.entries(pillars)) {
+    if (!p) continue;
+    const b = p.branch.hanja;
+    { const p = pairIn(CHUNG, branch, b); if (p) out.push(`${PILLAR_KO[k]} ${b}${KO[b]}와 ${p}충`); }
+    { const p = pairIn(YUKHAP, branch, b); if (p) out.push(`${PILLAR_KO[k]} ${b}${KO[b]}와 ${p}합`); }
+  }
+  const set = new Set(Object.values(pillars).filter(Boolean).map(p => p.branch.hanja));
+  for (const [three, el] of SAMHAP) {
+    if (three.includes(branch) && [...three].every(c => c === branch || set.has(c))) out.push(`원국과 ${three} 삼합 ${el}국 완성`);
+  }
+  return out;
 }
 
 function computeSaju({ calendar, year, month, day, hour, minute, timeUnknown, leapMonth, gender }) {
@@ -88,11 +134,34 @@ function computeSaju({ calendar, year, month, day, hour, minute, timeUnknown, le
     ganZhi: ko(d.getGanZhi()), hanja: d.getGanZhi(), startAge: d.getStartAge(), startYear: d.getStartYear(),
   }));
 
+  const dayStem = pillars.day.stem.hanja;
+  const thisYear = Number(today().slice(0, 4));
+  const describe = gz => {
+    const [g, z] = [...gz];
+    return `${gz}(${ko(gz)}) — 천간 ${g}${ELEMENT[g]} ${tenGodOf(dayStem, g)}, 지지 ${z}${ELEMENT[z]} ${tenGodOf(dayStem, LunarUtil.ZHI_HIDE_GAN[z][0])}`;
+  };
+  // 세운: 올해부터 3년
+  const yearlyLuck = [0, 1, 2].map(i => {
+    const y = thisYear + i, gz = yearGanZhi(y);
+    return { year: y, ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
+  });
+  // 올해 월운: 절기 기준 각 달의 간지 (양력 15일 기준)
+  const monthlyLuck = Array.from({ length: 12 }, (_, i) => {
+    const gz = Solar.fromYmd(thisYear, i + 1, 15).getLunar().getMonthInGanZhiExact();
+    return { month: i + 1, ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
+  });
+  const age = thisYear - solar.getYear() + 1;
+  const current = daeun.filter(d => d.startAge <= age).pop();
+
   return {
     solarDate: solar.toYmd(),
     lunarDate: `${lunar.getYear()}-${lunar.getMonth() < 0 ? '윤' : ''}${Math.abs(lunar.getMonth())}-${lunar.getDay()}`,
     dayMaster: `${pillars.day.stem.korean}${pillars.day.stem.element}(${pillars.day.stem.hanja})`,
     pillars, elements, daeun, timeUnknown: !!timeUnknown, gender,
+    relations: natalRelations(pillars),
+    currentDaeun: current ? `${current.hanja}(${current.ganZhi}) 대운, ${current.startAge}세부터` : '대운 시작 전',
+    koreanAge: age,
+    yearlyLuck, monthlyLuck,
   };
 }
 
@@ -104,6 +173,7 @@ function validate(b) {
   if (!b.timeUnknown && (!int(b.hour, 0, 23) || !int(b.minute, 0, 59))) return '태어난 시간을 확인하세요';
   if (b.question && (typeof b.question !== 'string' || b.question.length > 300)) return '질문은 300자 이내로 입력하세요';
   if (b.topic && !TOPICS[b.topic]) return '알 수 없는 풀이 종류입니다';
+  if (b.name && (typeof b.name !== 'string' || b.name.length > 10)) return '이름은 10자 이내로 입력하세요';
   return null;
 }
 
@@ -118,20 +188,32 @@ app.post('/api/saju', (req, res) => {
 });
 
 // ---------- AI 풀이 (Gemini, 스트리밍) ----------
-const INSTRUCTIONS = `당신은 30년 경력의 한국 명리학자입니다. 제공된 사주팔자 데이터(이미 정확히 계산됨)를 바탕으로 풀이하세요.
-- 계산 결과를 다시 계산하거나 바꾸지 말고 그대로 사용하세요.
-- 일간의 강약, 오행의 균형, 십신 구성, 용신(추정)을 근거로 설명하세요.
-- 요청된 구성의 제목(##)을 그대로 쓰세요.
-- 십신 이름은 데이터에 적힌 그대로 쓰고, 일간 자체를 십신으로 설명하지 마세요.
-- 담백한 존댓말(~합니다)로 간결하게 쓰세요. 감성적 수사, 이모지, 과장된 위로·칭찬은 쓰지 마세요.
-- 근거(오행·십신)를 짧게 밝히고 구체적으로 쓰되, 단정적인 공포 조장은 피하세요. 마크다운으로 작성하세요.
-- 의료·법률·투자 판단은 전문가 상담을 권하세요.`;
+const INSTRUCTIONS = `당신은 한국 전통 명리학에 밝은 상담가입니다. 제공된 사주 데이터(서버가 만세력으로 정확히 계산함)를 바탕으로 풀이하세요.
+
+[근거]
+- 간지, 십신, 지장간, 합·충, 세운·월운은 데이터에 적힌 것만 사용하세요. 직접 계산하거나 데이터에 없는 합·충을 만들지 마세요.
+- 일간(본인)을 중심으로, 어느 기둥의 어떤 글자·십신 때문에 그렇게 읽는지 근거를 먼저 밝히고 해석을 이어가세요.
+- 일간 자체를 십신으로 부르지 말고, 십신 이름은 데이터 표기 그대로 쓰세요.
+
+[말투]
+- 차분한 존댓말로 쓰고 "~합니다"와 "~해요"를 자연스럽게 섞으세요. 이름이 주어지면 "OO님"으로 부르세요.
+- 전문 용어는 처음 나올 때 한자와 쉬운 설명을 붙이세요. 예: 정화(丁火)는 태양처럼 넓게 비추는 불이 아니라 촛불처럼 한곳을 비추는 불이에요.
+- 단정하지 말고 "~로 해석합니다", "~로 읽기도 해요"처럼 전통 해석임을 드러내세요.
+- 좋은 점만 쓰지 말고 과제와 주의점도 균형 있게 쓰고, 오해할 만한 부분은 "반드시 ~라는 뜻은 아니에요"처럼 짚어주세요.
+- 이모지, 과장된 칭찬, 감성적 수사는 쓰지 마세요. 문단은 짧게, 나열은 "- "로 쓰세요.
+- 의료·법률·투자 판단이 필요한 내용은 전문가 상담을 권하세요.
+
+[형식]
+- 요청된 구성의 제목(##)을 순서대로 그대로 쓰고, 마크다운으로 작성하세요.
+- 첫 섹션 끝에 핵심 키워드 3~5개를 **굵게** 한 줄로 정리하세요.
+- 연도·월별 흐름은 마크다운 표(| 연도 | 세운 | 해석 |)로 쓰세요.
+- 마지막 "종합적으로 보면"은 두세 문단으로 전체를 정리하세요.`;
 
 // 홈 화면 카드별 풀이 구성
 const TOPICS = {
-  total: '## 타고난 성향 / ## 오행 균형과 보완법 / ## 재물운 / ## 직업·적성 / ## 연애·관계 / ## 건강 / ## 대운 흐름 / ## 올해의 운세',
-  year: `## ${new Date().getFullYear()}년 총운 / ## 상반기 / ## 하반기 / ## 월별 흐름(1~12월, 각 한두 문장) / ## 주의할 점`,
-  love: '## 연애 성향 / ## 잘 맞는 상대 / ## 관계에서 주의할 점 / ## 올해의 연애운',
+  total: y => `## 1. 타고난 사주팔자 (일주 중심의 핵심 요약) / ## 2. 성격과 타고난 기질 / ## 3. 직업운과 재물운 / ## 4. 연애운과 결혼운 / ## 5. ${y}~${y + 2}년 운의 흐름 (세운 표) / ## 종합적으로 보면`,
+  year: y => `## 1. ${y}년 세운 한눈에 보기 / ## 2. 상반기 흐름 / ## 3. 하반기 흐름 / ## 4. 월별 흐름 (1~12월 월운 표: | 월 | 월운 | 해석 |) / ## 5. 올해 주의할 점 / ## 종합적으로 보면`,
+  love: y => `## 1. 연애 성향 / ## 2. 배우자 별로 보는 인연 (여성은 관성, 남성은 재성 중심) / ## 3. 잘 맞는 상대 / ## 4. ${y}~${y + 2}년 연애·결혼운 (세운 표) / ## 종합적으로 보면`,
 };
 
 // 혼잡(503)·한도(429) 응답이면 잠시 후 재시도하고, 그래도 안 되면 대체 모델로 넘어간다
@@ -238,12 +320,13 @@ app.post('/api/reading', async (req, res) => {
     return res.status(500).json({ error: '사용 기록을 저장하지 못했습니다' });
   }
 
+  const name = typeof req.body.name === 'string' ? req.body.name.trim().slice(0, 10) : '';
   const input = `오늘 날짜: ${today()}
-사주 데이터:
+${name ? `이름: ${name}\n` : ''}사주 데이터:
 ${JSON.stringify(saju, null, 2)}
 ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
-  const sections = TOPICS[topic] + (req.body.question ? ' / ## 질문에 대한 답변' : '');
+  const sections = TOPICS[topic](Number(today().slice(0, 4))) + (req.body.question ? ' / ## 질문에 대한 답변' : '');
   await streamLLM(res, `${INSTRUCTIONS}\n- 구성: ${sections}`, input, () => LIMIT && refundQuota(user.id));
 });
 
@@ -265,8 +348,9 @@ app.post('/api/llm/register', (req, res) => {
 const localAlive = () => localLLM && Date.now() - localLLM.at < 3 * 60 * 1000;
 
 async function requestLocal(system, input, signal) {
+  // 맥에서 모델을 메모리에 올리거나 다른 풀이를 처리 중이면 시작이 늦을 수 있어 60초까지 기다린다
   const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(), 15000);
+  const timer = setTimeout(() => timeout.abort(), 60000);
   try {
     const r = await fetch(`${localLLM.url}/v1/chat/completions`, {
       method: 'POST',
@@ -353,11 +437,24 @@ const SPREADS = {
   worry: { count: 3, positions: ['과거', '현재', '미래'], frame: '사용자의 고민' },
 };
 
-const TAROT_INSTRUCTIONS = `당신은 경험 많은 타로 리더입니다. 뽑힌 카드와 위치, 정/역방향을 바탕으로 해석하세요.
-- 카드마다 ## 위치 — 카드 이름(정/역방향) 제목을 쓰고, 카드의 전통적 의미와 이 위치에서의 의미를 설명하세요.
-- 마지막에 ## 종합 과 ## 조언 을 쓰세요.
-- 담백한 존댓말(~합니다)로 간결하게 쓰세요. 감성적 수사, 이모지, 과장된 위로·칭찬은 쓰지 마세요.
-- 단정적인 예언이나 공포 조장은 피하고, 의료·법률·투자 판단은 전문가 상담을 권하세요. 마크다운으로 작성하세요.`;
+const TAROT_INSTRUCTIONS = `당신은 경험 많은 타로 상담가입니다. 뽑힌 카드와 자리, 정/역방향을 바탕으로 질문한 사람이 읽고 바로 이해할 수 있게 깊이 있게 풀이하세요.
+
+[카드마다]
+- 제목은 "## 자리 — 카드 이름 (정방향/역방향)" 형식으로 쓰세요.
+- 먼저 카드 그림에 무엇이 그려져 있는지 한두 문장으로 묘사하고(라이더-웨이트 덱 기준), 그 그림이 전통적으로 무엇을 뜻하는지 설명하세요.
+- 역방향이면 정방향 의미가 어떻게 막히거나 뒤집히거나 안으로 향하는지 구체적으로 설명하세요.
+- 이 카드가 이 자리에 나온 것이 질문한 사람의 상황에서 무엇을 말하는지, 실제 생활의 예를 들어 풀어주세요. 질문이 있으면 질문과 직접 연결하세요.
+- 카드마다 두세 문단으로 충분히 쓰세요.
+
+[전체]
+- "## 카드들이 함께 말하는 것"에서 카드 사이의 흐름과 연결(예: 앞 카드의 막힘이 뒤 카드에서 어떻게 풀리는지)을 설명하세요. 카드가 한 장이면 이 섹션은 오늘 하루의 흐름으로 쓰세요.
+- "## 조언"에서 지금 해볼 수 있는 구체적인 행동 두세 가지를 "- "로 정리하세요.
+- 마지막 "## 한 줄 요약"에 핵심을 한 문장으로 쓰세요.
+
+[말투]
+- 차분한 존댓말로 쓰고 "~합니다"와 "~해요"를 자연스럽게 섞으세요. 어려운 용어 없이 쉬운 말로 쓰세요.
+- 단정적인 예언 대신 "~로 읽을 수 있어요", "~를 뜻하기도 해요"처럼 쓰고, 오해할 만한 부분은 "반드시 ~라는 뜻은 아니에요"처럼 짚어주세요.
+- 이모지, 과장된 칭찬, 감성적 수사는 쓰지 마세요. 의료·법률·투자 판단이 필요한 내용은 전문가 상담을 권하세요. 마크다운으로 작성하세요.`;
 
 app.post('/api/tarot', async (req, res) => {
   if (!GEMINI_API_KEY && !localAlive()) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });

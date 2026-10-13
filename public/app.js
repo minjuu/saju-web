@@ -167,6 +167,27 @@ async function refreshQuota() {
   } catch { $('#quotaHint').textContent = ''; }
 }
 
+// ---------- 로딩 표시 ----------
+// 응답 첫 글자가 오기 전까지 진행 막대와 안내 문구를 보여준다. 막대는 시간이 지날수록 천천히 90% 근처까지 찬다
+const LOADING_MSGS = {
+  saju: ['풀이를 쓰고 있어요. 보통 30초에서 1분 정도 걸려요.', '여덟 글자와 운의 흐름을 하나씩 살펴보고 있어요.', '거의 다 됐어요. 내용을 정리하고 있어요.', '평소보다 조금 오래 걸리고 있어요. 창을 닫지 말고 잠시만 기다려 주세요.'],
+  tarot: ['카드를 읽고 있어요. 보통 20초에서 40초 정도 걸려요.', '카드의 위치와 방향을 함께 살펴보고 있어요.', '거의 다 됐어요. 내용을 정리하고 있어요.', '평소보다 조금 오래 걸리고 있어요. 창을 닫지 말고 잠시만 기다려 주세요.'],
+};
+window.startLoading = (out, kind) => {
+  const msgs = LOADING_MSGS[kind];
+  out.innerHTML = `<div class="loader"><div class="loader-bar"><span></span></div><p class="loader-msg">${msgs[0]}</p></div>`;
+  const bar = out.querySelector('.loader-bar span'), msg = out.querySelector('.loader-msg');
+  const t0 = Date.now();
+  const tick = setInterval(() => {
+    const s = (Date.now() - t0) / 1000;
+    if (!bar.isConnected) return clearInterval(tick);
+    bar.style.width = `${Math.min(92, 92 * (1 - Math.exp(-s / 25)))}%`;
+    msg.textContent = msgs[s < 15 ? 0 : s < 35 ? 1 : s < 70 ? 2 : 3];
+  }, 1000);
+  requestAnimationFrame(() => { bar.style.width = '8%'; });
+  return () => clearInterval(tick);
+};
+
 // ---------- 사주 입력 · 결과 ----------
 document.querySelectorAll('input[name=calendar]').forEach(el => el.onchange = () =>
   $('#leapWrap').classList.toggle('hidden', $('input[name=calendar]:checked').value !== 'lunar'));
@@ -188,6 +209,7 @@ function restoreForm() {
   $('#date').value = `${b.year}-${p(b.month)}-${p(b.day)}`;
   $('#time').value = `${p(b.hour)}:${p(b.minute)}`;
   $('#question').value = b.question || '';
+  $('#name').value = b.name || '';
 }
 
 function payload() {
@@ -201,6 +223,7 @@ function payload() {
     year, month, day, hour, minute,
     timeUnknown: document.querySelector('input[name=timeUnknown]').checked,
     question: $('#question').value.trim(),
+    name: $('#name').value.trim(),
   };
 }
 
@@ -239,7 +262,7 @@ $('#form').onsubmit = async e => {
     if (dailyLimit && usedToday) return;
 
     const out = $('#reading');
-    out.innerHTML = ''; out.classList.add('loading');
+    const stopLoading = startLoading(out, 'saju');
     $('#readingCard').classList.remove('hidden');
     btn.textContent = '풀이 작성 중…';
     const res = await fetch('/api/reading', {
@@ -254,7 +277,7 @@ $('#form').onsubmit = async e => {
       const { value, done } = await reader.read();
       if (done) break;
       text += dec.decode(value, { stream: true });
-      out.classList.remove('loading');
+      stopLoading();
       out.innerHTML = DOMPurify.sanitize(marked.parse(text));
     }
   } catch (err) {
@@ -262,7 +285,6 @@ $('#form').onsubmit = async e => {
   } finally {
     btn.disabled = false;
     btn.textContent = '사주 보기';
-    $('#reading').classList.remove('loading');
     refreshQuota();
   }
 };

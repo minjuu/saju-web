@@ -22,6 +22,7 @@ const {
   SITE_URL = 'https://saju-tokki.onrender.com',
   PROXY_PORT = '11435',
   OLLAMA_URL = 'http://127.0.0.1:11434',
+  LOCAL_LLM_MODEL = 'gpt-oss:20b',
 } = process.env;
 if (!LOCAL_LLM_SECRET) { console.error('.env에 LOCAL_LLM_SECRET이 없습니다'); process.exit(1); }
 
@@ -69,6 +70,21 @@ async function register() {
   }
 }
 setInterval(register, 60000);
+
+// Ollama는 5분간 안 쓰면 모델을 메모리에서 내린다. 다시 올리는 데 시간이 걸려 첫 풀이가 늦어지므로 계속 올려 둔다
+async function keepWarm() {
+  try {
+    await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: LOCAL_LLM_MODEL, keep_alive: -1 }),
+    });
+  } catch (e) {
+    console.warn('모델 예열 실패:', e.message);
+  }
+}
+keepWarm();
+setInterval(keepWarm, 10 * 60000);
 
 const stop = () => { tunnel.kill(); process.exit(0); };
 process.on('SIGINT', stop);

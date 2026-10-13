@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: gyeol-saju
+    name: saju-tokki
     runtime: node
     plan: free
     buildCommand: npm ci

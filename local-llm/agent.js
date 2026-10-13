@@ -2,8 +2,19 @@
 // 1) 비밀 키를 확인하는 프록시로 Ollama(127.0.0.1:11434)를 감싼다
 // 2) Cloudflare 임시 터널로 프록시를 인터넷에 연다
 // 3) 터널 주소를 사이트(Render)에 1분마다 등록한다 — 주소가 바뀌거나 서버가 재시작돼도 다시 연결된다
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+// 설정 파일: AGENT_ENV_FILE 또는 저장소의 .env (KEY=VALUE 형식). 백그라운드 실행 시 macOS가 Documents 접근을
+// 막기 때문에, 상시 실행용으로는 이 파일과 설정을 ~/Library/Application Support/saju-localllm 에 복사해 쓴다
+const envFile = process.env.AGENT_ENV_FILE || path.join(__dirname, '..', '.env');
+try {
+  for (const line of fs.readFileSync(envFile, 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*)\s*$/);
+    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2];
+  }
+} catch {}
 const { spawn } = require('child_process');
 
 const {

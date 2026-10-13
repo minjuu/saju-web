@@ -188,6 +188,88 @@ window.startLoading = (out, kind) => {
   return () => clearInterval(tick);
 };
 
+// ---------- 풀이 리포트 ----------
+// 서버(모델)는 "## 섹션 / ### 소제목 / ```scores``` 블록" 형식의 마크다운을 스트리밍한다.
+// 이를 섹션 탭 + 섹션 카드 + 라벨 + 능력치 차트로 바꿔 그린다. 글자가 올 때마다 다시 그린다
+function parseScores(src) {
+  return src.split('\n').map(l => l.split('|').map(x => x.trim()))
+    .filter(p => p.length >= 3 && p[0] && /^\d+$/.test(p[1]))
+    .map(([name, v, desc]) => ({ name, v: Math.max(0, Math.min(100, Number(v))), desc }));
+}
+function radar(items) {
+  if (items.length < 3) return '';
+  const R = 90, cx = 130, cy = 120, n = items.length;
+  const pt = (i, r) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  };
+  const ring = f => items.map((_, i) => pt(i, R * f).join(',')).join(' ');
+  const shape = items.map((it, i) => pt(i, (R * it.v) / 100).join(',')).join(' ');
+  const labels = items.map((it, i) => {
+    const [x, y] = pt(i, R + 18);
+    return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle">${esc(it.name)}</text>`;
+  }).join('');
+  const axes = items.map((_, i) => { const [x, y] = pt(i, R); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"/>`; }).join('');
+  return `<svg class="radar" viewBox="0 0 260 245" role="img" aria-label="능力치 차트">
+    <g class="grid">${[1, 0.66, 0.33].map(f => `<polygon points="${ring(f)}"/>`).join('')}${axes}</g>
+    <polygon class="shape" points="${shape}"/>
+    ${items.map((it, i) => { const [x, y] = pt(i, (R * it.v) / 100); return `<circle cx="${x}" cy="${y}" r="3.5"/>`; }).join('')}
+    <g class="labels">${labels}</g></svg>`;
+}
+function scoresHtml(items) {
+  return radar(items) + items.map(it => `<div class="score">
+    <div class="score-top"><b>${esc(it.name)}</b><span class="score-bar"><i style="width:${it.v}%"></i></span><em>${it.v}</em></div>
+    ${it.desc ? `<p>${esc(it.desc)}</p>` : ''}</div>`).join('');
+}
+let reportTab = 0;
+function renderReport(out, text) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = DOMPurify.sanitize(marked.parse(text));
+  // 모델이 구성 안내("— 설명")까지 제목에 붙이는 경우가 있어 잘라낸다
+  tmp.querySelectorAll('h2, h3').forEach(h => { h.textContent = h.textContent.split(/\s+[—–-]\s+/)[0].trim(); });
+  tmp.querySelectorAll('pre > code.language-scores').forEach(code => {
+    const box = document.createElement('div');
+    box.className = 'scores';
+    box.innerHTML = scoresHtml(parseScores(code.textContent));
+    code.parentElement.replaceWith(box);
+  });
+  const sections = [];
+  let cur = null;
+  for (const node of [...tmp.childNodes]) {
+    if (node.nodeName === 'H2') { cur = { title: node.textContent.trim(), nodes: [] }; sections.push(cur); continue; }
+    if (!cur) { cur = { title: '', nodes: [] }; sections.push(cur); }
+    cur.nodes.push(node);
+  }
+  const titled = sections.filter(s => s.title);
+  out.innerHTML = (titled.length > 1 ? `<nav class="rp-tabs">${titled.map((s, i) =>
+    `<button type="button" data-i="${i}" class="${i === reportTab ? 'on' : ''}">${esc(s.title)}</button>`).join('')}</nav>` : '') +
+    sections.map(s => {
+      const i = titled.indexOf(s);
+      const letter = s.title.includes('한마디') ? ' rp-letter' : '';
+      return `<section class="rp-sec card${letter}" ${i >= 0 ? `id="rp-${i}"` : ''}>${s.title ? `<h2>${esc(s.title)}</h2>` : ''}<div class="rp-body"></div></section>`;
+    }).join('');
+  out.querySelectorAll('.rp-body').forEach((body, i) => sections[i].nodes.forEach(n => body.appendChild(n)));
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.rp-tabs button');
+  if (!b) return;
+  reportTab = Number(b.dataset.i);
+  document.getElementById(`rp-${reportTab}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+// 스크롤 위치에 맞춰 탭 강조
+window.addEventListener('scroll', () => {
+  const secs = [...document.querySelectorAll('#reading .rp-sec[id]')];
+  if (!secs.length) return;
+  let active = 0;
+  secs.forEach((s, i) => { if (s.getBoundingClientRect().top < 160) active = i; });
+  if (active === reportTab) return;
+  reportTab = active;
+  document.querySelectorAll('#reading .rp-tabs button').forEach((b, i) => {
+    b.classList.toggle('on', i === active);
+    if (i === active) b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  });
+}, { passive: true });
+
 // ---------- 사주 입력 · 결과 ----------
 document.querySelectorAll('input[name=calendar]').forEach(el => el.onchange = () =>
   $('#leapWrap').classList.toggle('hidden', $('input[name=calendar]:checked').value !== 'lunar'));
@@ -262,6 +344,7 @@ $('#form').onsubmit = async e => {
     if (dailyLimit && usedToday) return;
 
     const out = $('#reading');
+    reportTab = 0;
     const stopLoading = startLoading(out, 'saju');
     $('#readingCard').classList.remove('hidden');
     btn.textContent = '풀이 작성 중…';
@@ -278,7 +361,7 @@ $('#form').onsubmit = async e => {
       if (done) break;
       text += dec.decode(value, { stream: true });
       stopLoading();
-      out.innerHTML = DOMPurify.sanitize(marked.parse(text));
+      renderReport(out, text);
     }
   } catch (err) {
     $('#error').textContent = err.message;

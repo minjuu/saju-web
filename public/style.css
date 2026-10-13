@@ -214,3 +214,47 @@ input[type="date"], input[type="time"] {
   display: block; width: 100%; max-width: 100%; min-width: 0; min-height: 44px; text-align: left;
 }
 input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+
+/* 사주 풀이 리포트: 섹션 탭 + 섹션 카드 + 라벨 + 능력치 */
+.report { max-width: 720px; }
+.report > #reading > .loader { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; }
+.rp-tabs {
+  position: sticky; top: 64px; z-index: 5; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  padding: 10px 0 12px; margin-bottom: 4px; background: var(--bg);
+}
+.rp-tabs::-webkit-scrollbar { display: none; }
+.rp-tabs button {
+  flex: none; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--card);
+  color: var(--ink); font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.rp-tabs button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.rp-sec { scroll-margin-top: 130px; }
+.rp-sec > h2 { font-size: 19px; margin: 0 0 14px; letter-spacing: -0.4px; }
+.rp-body { line-height: 1.85; font-size: 15.5px; overflow-wrap: anywhere; word-break: keep-all; }
+.rp-body h3 {
+  display: inline-block; margin: 22px 0 8px; padding: 4px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--card)); color: var(--accent); font-size: 14px; font-weight: 600;
+}
+.rp-body h3:first-child { margin-top: 0; }
+.rp-body h3 + p { margin-top: 0; }
+.rp-body p { margin: 0 0 4px; }
+.rp-body strong { color: var(--accent); }
+.rp-letter { background: #f6efe1; border-color: #eadfc8; }
+.rp-letter > h2::before { content: '兎 '; color: #b08a4a; }
+
+.scores .radar { display: block; width: 100%; max-width: 320px; margin: 0 auto 10px; }
+.radar .grid polygon, .radar .grid line { fill: none; stroke: var(--line); stroke-width: 1; }
+.radar .shape { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: var(--accent); stroke-width: 2; }
+.radar circle { fill: var(--accent); }
+.radar .labels text { font-size: 11.5px; fill: var(--muted); }
+.score { background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 8px; }
+.score-top { display: flex; align-items: center; gap: 12px; }
+.score-top b { flex: none; width: 70px; font-size: 15px; }
+.score-bar { flex: 1; height: 7px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.score-bar i { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+.score-top em { flex: none; width: 30px; text-align: right; font-style: normal; font-weight: 700; color: var(--accent); }
+.score p { margin: 6px 0 0; font-size: 14px; color: var(--muted); line-height: 1.6; }
+@media (max-width: 560px) {
+  .rp-tabs { top: 64px; }
+  .rp-body { font-size: 15px; }
+}

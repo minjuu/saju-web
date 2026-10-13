@@ -74,6 +74,10 @@ tunnel.stdout.on('data', onLog);
 tunnel.stderr.on('data', onLog);
 tunnel.on('exit', code => { console.error('cloudflared 종료:', code); process.exit(1); });
 
+// 맥북이 잠자기에 들어가면 연결이 끊겨 풀이를 못 하므로, 이 프로그램이 도는 동안은 잠자기를 막는다(화면은 꺼져도 됨)
+const awake = spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'ignore' });
+awake.unref();
+
 let lastStatus = null;
 async function register() {
   if (!tunnelUrl) return;
@@ -87,7 +91,8 @@ async function register() {
     if (r.status !== lastStatus) console.log(new Date().toLocaleTimeString('ko-KR'), r.ok ? '사이트에 연결됨' : `사이트 연결 실패 (${r.status})`);
     lastStatus = r.status;
   } catch (e) {
-    console.warn('등록 실패:', e.message);
+    if (lastStatus !== 'error') console.warn(new Date().toLocaleTimeString('ko-KR'), '사이트 연결 끊김 (네트워크 확인 필요):', e.message);
+    lastStatus = 'error';
   }
 }
 setInterval(register, 20000); // 서버가 재배포되면 등록 정보가 사라지므로 자주 알린다

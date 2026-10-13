@@ -31,6 +31,9 @@ const proxy = http.createServer((req, res) => {
     res.writeHead(403).end();
     return;
   }
+  const t0 = Date.now();
+  console.log(new Date().toLocaleTimeString('ko-KR'), '풀이 요청 받음');
+  res.on('finish', () => console.log(new Date().toLocaleTimeString('ko-KR'), `풀이 완료 (${Math.round((Date.now() - t0) / 1000)}초)`));
   const up = http.request(`${OLLAMA_URL}${req.url}`, { method: 'POST', headers: { 'content-type': 'application/json' } }, upRes => {
     res.writeHead(upRes.statusCode, { 'content-type': upRes.headers['content-type'] || 'text/event-stream' });
     upRes.pipe(res);
@@ -55,6 +58,7 @@ tunnel.stdout.on('data', onLog);
 tunnel.stderr.on('data', onLog);
 tunnel.on('exit', code => { console.error('cloudflared 종료:', code); process.exit(1); });
 
+let lastStatus = null;
 async function register() {
   if (!tunnelUrl) return;
   try {
@@ -64,7 +68,8 @@ async function register() {
       body: JSON.stringify({ url: tunnelUrl }),
       signal: AbortSignal.timeout(90000), // Render 무료 서버가 잠들어 있으면 깨어나는 데 시간이 걸린다
     });
-    console.log(new Date().toLocaleTimeString('ko-KR'), '등록', r.status);
+    if (r.status !== lastStatus) console.log(new Date().toLocaleTimeString('ko-KR'), r.ok ? '사이트에 연결됨' : `사이트 연결 실패 (${r.status})`);
+    lastStatus = r.status;
   } catch (e) {
     console.warn('등록 실패:', e.message);
   }

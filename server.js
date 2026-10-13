@@ -206,7 +206,7 @@ const INSTRUCTIONS = `당신은 한국 전통 명리학에 밝은 상담가입�
 
 [형식 — 반드시 지키세요]
 - 큰 섹션은 "## 제목", 그 안의 작은 주제는 "### 제목"으로 쓰고, 요청된 구성의 제목을 순서대로 그대로 쓰세요. 구성에서 괄호나 "—" 뒤의 설명은 쓸 내용 안내이니 제목에 넣지 마세요.
-- "###" 아래에는 3~5문장짜리 문단 하나를 쓰세요. 목록이나 표는 쓰지 마세요.
+- "###" 아래에는 문단 하나를 쓰세요. 해석 3~4문장 뒤에, 그 성향이나 흐름의 좋은 면과 힘든 면을 함께 짚고 어떻게 다루면 더 잘 풀리는지 공감하며 다정하게 건네는 문장 1~2개로 마무리하세요. 예: "꼼꼼함은 분명 큰 장점이지만, 그만큼 스스로를 쉽게 지치게 만들기도 해요. 가끔은 '이 정도면 충분해'라고 스스로에게 말해줘도 괜찮아요." 목록이나 표는 쓰지 마세요.
 - 점수 섹션은 아래처럼 코드 블록 하나로만 쓰세요. 항목마다 "이름|0~100 사이 점수|한 문장 설명" 한 줄이며, 점수는 사주 근거에 맞게 들쭉날쭉하게 주세요.
 \`\`\`scores
 표현력|45|말수는 적지만 깊이 있는 표현은 한 번에 전달돼요.
@@ -431,10 +431,14 @@ async function streamLLM(res, system, input, onFail) {
   if (GEMINI_API_KEY) attempts.push(['Gemini', tryGemini]);
   if (localAlive()) attempts.push(['로컬(재시도)', tryLocal]);
 
+  const t0 = Date.now();
   for (const [name, attempt] of attempts) {
     try {
       await attempt();
-      if (wrote) return res.end();
+      if (wrote) {
+        console.log(`풀이 완료: ${name}, ${Math.round((Date.now() - t0) / 1000)}초`);
+        return res.end();
+      }
     } catch (e) {
       if (ac.signal.aborted) return;
       console.warn(`${name} 실패:`, e.message);

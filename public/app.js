@@ -4,14 +4,14 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 // ---------- 콘텐츠 ----------
 const YEAR = new Date().getFullYear();
 const TOPICS = {
-  total: { mark: '命', title: '평생 사주', desc: '타고난 성향, 재물, 직업, 관계, 대운까지 한 번에 봅니다.', color: 'c1', badge: '가장 많이 봐요' },
-  year: { mark: '年', title: `${YEAR} 신년 운세`, desc: '올해의 흐름을 상반기와 하반기, 월별로 정리합니다.', color: 'c2', badge: 'NEW' },
-  love: { mark: '緣', title: '연애운', desc: '연애 성향과 잘 맞는 상대, 올해의 인연을 봅니다.', color: 'c3' },
+  total: { mark: '命', title: '평생 사주', desc: '타고난 성격부터 일, 돈, 사랑, 앞으로의 흐름까지 한 번에 알아봐요!', color: 'c1', badge: '가장 많이 봐요' },
+  year: { mark: '年', title: `${YEAR} 신년 운세`, desc: '올해 어떤 일이 기다리고 있을지 계절별로 미리 알아봐요!', color: 'c2', badge: 'NEW' },
+  love: { mark: '緣', title: '연애운', desc: '나의 연애 스타일과 잘 맞는 사람, 올해 찾아올 인연을 알아봐요!', color: 'c3' },
 };
 const SLIDES = [
-  { title: '어떤 운세가 궁금하세요?', sub: '타고난 성향부터 올해의 흐름까지', topic: 'total', bg: 'b1' },
-  { title: `${YEAR}년, 올해의 흐름`, sub: '상반기와 하반기, 월별 운세를 확인하세요', topic: 'year', bg: 'b2' },
-  { title: '하루 한 번 무료 풀이', sub: '로그인하면 계정당 하루 한 번 볼 수 있습니다', topic: 'total', bg: 'b3' },
+  { title: '어떤 운세가 궁금하세요?', sub: '타고난 성격부터 올해의 흐름까지 알려드려요', topic: 'total', bg: 'b1' },
+  { title: `${YEAR}년, 올해 나의 운세는?`, sub: '계절마다 어떤 흐름이 오는지 미리 확인해 보세요', topic: 'year', bg: 'b2' },
+  { title: '하루 한 번 무료 풀이', sub: '로그인하면 하루 한 번 무료로 볼 수 있어요', topic: 'total', bg: 'b3' },
 ];
 
 $('#cards').innerHTML = Object.entries(TOPICS).map(([key, t], i) => `
@@ -88,7 +88,7 @@ async function initAuth() {
 
   if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
     $('#authNav').innerHTML = ''; // 로그인 미설정이면 메뉴에서 숨김
-    $('#loginError').textContent = '로그인 기능이 아직 설정되지 않았습니다.';
+    $('#loginError').textContent = '로그인은 아직 준비 중이에요.';
     return;
   }
   sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { flowType: 'pkce' } });
@@ -132,12 +132,12 @@ $('#emailForm').onsubmit = async e => {
     ? await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/' } })
     : await sb.auth.signInWithPassword({ email, password });
   if (error) { $('#loginError').textContent = authError(error); return; }
-  if (signUpMode && !data.session) $('#loginInfo').textContent = '확인 메일을 보냈습니다. 메일의 링크를 누르면 가입이 완료됩니다.';
+  if (signUpMode && !data.session) $('#loginInfo').textContent = '확인 메일을 보냈어요. 메일 속 링크를 누르면 가입이 끝나요!';
 };
 function authError(e) {
-  if (/Invalid login credentials/i.test(e.message)) return '이메일 또는 비밀번호가 올바르지 않습니다.';
-  if (/already registered/i.test(e.message)) return '이미 가입된 이메일입니다.';
-  if (/Email not confirmed/i.test(e.message)) return '이메일 인증이 완료되지 않았습니다. 받은 메일을 확인하세요.';
+  if (/Invalid login credentials/i.test(e.message)) return '이메일이나 비밀번호가 맞지 않아요.';
+  if (/already registered/i.test(e.message)) return '이미 가입된 이메일이에요.';
+  if (/Email not confirmed/i.test(e.message)) return '아직 이메일 인증 전이에요. 받은 메일을 확인해 주세요.';
   return e.message;
 }
 document.addEventListener('click', e => {
@@ -159,7 +159,7 @@ function applyLimitCopy() {
 }
 async function refreshQuota() {
   if (!dailyLimit) return;
-  if (!user) { usedToday = false; $('#quotaHint').textContent = '사주팔자 표는 로그인 없이 볼 수 있습니다.'; return; }
+  if (!user) { usedToday = false; $('#quotaHint').textContent = '사주팔자 표는 로그인 없이도 볼 수 있어요.'; return; }
   try {
     const r = await fetch('/api/quota', { headers: { Authorization: `Bearer ${await token()}` } }).then(r => r.json());
     usedToday = !!r.usedToday;
@@ -391,4 +391,4 @@ $('#form').onsubmit = async e => {
 
 restoreForm();
 route();
-initAuth().catch(() => { $('#loginError').textContent = '로그인 설정을 불러오지 못했습니다.'; });
+initAuth().catch(() => { $('#loginError').textContent = '로그인 정보를 불러오지 못했어요.'; });

@@ -14,11 +14,11 @@
   ];
 
   const SPREADS = {
-    today: { mark: '今', title: '오늘의 타로', desc: '카드 한 장으로 오늘의 흐름을 봅니다.', color: 'c7',
+    today: { mark: '今', title: '오늘의 타로', desc: '카드 한 장으로 오늘의 운세를 알아봐요!', color: 'c7',
       positions: ['오늘의 카드'], ask: false },
-    love: { mark: '心', title: '연애 타로', desc: '나의 마음, 상대의 마음, 앞으로의 흐름을 세 장으로 봅니다.', color: 'c3',
+    love: { mark: '心', title: '연애 타로', desc: '내 마음, 그 사람 마음, 앞으로 우리 사이를 세 장으로 알아봐요!', color: 'c3',
       positions: ['나의 마음', '상대의 마음', '앞으로의 흐름'], ask: true, placeholder: '예) 그 사람과 다시 연락이 될까요?' },
-    worry: { mark: '問', title: '고민 타로', desc: '고민을 적고 과거·현재·미래 세 장을 뽑습니다.', color: 'c2',
+    worry: { mark: '問', title: '고민 타로', desc: '고민을 적고 세 장을 뽑아 과거, 지금, 앞으로를 살펴봐요!', color: 'c2',
       positions: ['과거', '현재', '미래'], ask: true, required: true, placeholder: '예) 지금 회사를 계속 다녀야 할까요?' },
   };
   const SHOWN = 24; // 펼쳐 놓는 카드 수
@@ -112,7 +112,7 @@
     const sp = SPREADS[spread];
     const question = $('#tarotQ').value.trim();
     $('#tarotError').textContent = '';
-    if (sp.required && !question) { $('#tarotError').textContent = '고민을 먼저 적어주세요.'; $('#tarotQ').focus(); return; }
+    if (sp.required && !question) { $('#tarotError').textContent = '고민을 먼저 적어 주세요!'; $('#tarotQ').focus(); return; }
     busy = true;
     $('#tarotGo').disabled = true;
     $('#tarotGo').textContent = '풀이 작성 중…';

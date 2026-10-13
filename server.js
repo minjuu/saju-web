@@ -200,7 +200,7 @@ const INSTRUCTIONS = `당신은 한국 전통 명리학에 밝은 상담가입�
 - 일간 자체를 십신으로 부르지 말고, 십신 이름은 데이터 표기 그대로 쓰세요.
 
 [깊이 — 가장 중요해요]
-- 각 "###" 문단은 이 순서로, 6~9문장으로 깊이 있게 쓰세요.
+- 각 "###"는 아래 순서로 두 문단, 합쳐서 9~12문장 이상 깊이 있게 쓰세요. 짧게 끝내지 마세요. 첫 문단은 1)~2), 둘째 문단은 3)~4)예요.
   1) 왜 그런지: 어느 기둥의 어떤 글자·십신·오행·합충 때문인지 논리적으로 설명해요.
   2) 삶에서 보이는 모습: 이 사람이 실제로 겪었을 법한 구체적인 장면으로 보여줘요.
   3) 공감: 그 성향 때문에 느꼈을 마음(서운함, 지침, 답답함 등)을 내 일처럼 헤아려 말해줘요.
@@ -211,12 +211,12 @@ const INSTRUCTIONS = `당신은 한국 전통 명리학에 밝은 상담가입�
 [말투]
 - 이름이 주어지면 "OO님"으로 부르고, 대화하듯 "~예요", "~거예요", "~편이에요"를 중심으로 쓰세요.
 - 단정하지 말고 "~로 읽혀요", "~일 가능성이 커요"처럼 쓰세요. 과장된 칭찬과 뻔한 덕담은 쓰지 마세요.
-- 이모지는 "##" 섹션마다 많아야 하나만, 그 섹션에서 가장 중요한 문장 끝에 붙이세요(예: 🌱 🔥 🌙 🫶). 제목에는 쓰지 마세요.
+- 이모지는 쓰지 마세요(제목의 이모지는 화면에서 자동으로 붙어요).
 - 의료·법률·투자 판단이 필요한 내용은 전문가 상담을 권하세요.
 
 [형식 — 반드시 지키세요]
 - 큰 섹션은 "## 제목", 그 안의 작은 주제는 "### 제목"으로 쓰고, 요청된 구성의 제목을 순서대로 그대로 쓰세요. 구성에서 괄호나 "—" 뒤의 설명은 쓸 내용 안내이니 제목에 넣지 마세요.
-- "###" 아래에는 위 [깊이] 순서를 따른 문단을 쓰세요(필요하면 두 문단). 목록이나 표는 쓰지 마세요.
+- "###" 아래에는 위 [깊이] 순서를 따른 두 문단을 쓰세요. 목록이나 표는 쓰지 마세요.
 - 질문이 있어도 구성의 모든 섹션과 소제목을 빠짐없이 쓰고, 질문 답변은 별도 섹션으로 추가하세요.
 - 점수(scores 블록)는 아래 형식으로 쓰세요. 구성에 "scores 블록"이 적힌 곳마다 하나씩 넣어요. 항목마다 "이름|0~100 사이 점수|한 문장 설명" 한 줄이며, 점수는 사주 근거에 맞게 들쭉날쭉하게 주세요.
 \`\`\`scores
@@ -359,8 +359,10 @@ ${name ? `이름: ${name}\n` : ''}사주 데이터:
 ${JSON.stringify(saju, null, 2)}
 ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
-  const sections = TOPICS[topic](Number(today().slice(0, 4))) + (req.body.question ? '\n## 질문에 대한 답변 (### 답변) — 사주토끼의 한마디 바로 앞에 둘 것' : '');
-  await streamLLM(res, `${INSTRUCTIONS}\n\n[구성]\n${sections}`, input, () => LIMIT && refundQuota(user.id), requestMeta(req, topic));
+  const sections = TOPICS[topic](Number(today().slice(0, 4))).split('\n');
+  if (req.body.question) sections.splice(sections.length - 1, 0, '## 질문에 대한 답변 (### 답변 — 사주 근거를 들어 질문에 직접 답하기)');
+  const outline = `[전체 구성 — 참고용]\n${sections.join('\n')}`;
+  await streamSections(res, `${INSTRUCTIONS}\n\n${outline}`, sections, input, () => LIMIT && refundQuota(user.id), requestMeta(req, topic));
 });
 
 // ---------- 요청 기록용 정보 (개인정보 없이) ----------
@@ -441,46 +443,93 @@ async function* sseEvents(body) {
 }
 
 // 맥의 로컬 모델 → Gemini 순서로 시도해 응답을 텍스트 스트림으로 흘려보낸다. 실패하면 onFail(횟수 복구 등)을 부른다
-async function streamLLM(res, system, input, onFail, meta = {}) {
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache');
-  const ac = new AbortController();
-  res.on('close', () => ac.abort());
+// 한 번의 풀이 생성: 맥의 로컬 모델 → Gemini → 로컬 모델 재시도 순으로 시도하며 글자가 올 때마다 onText를 부른다.
+// 글을 쓰기 시작한 뒤 실패하면 그대로 오류를 던진다(중간부터 다른 모델로 이어 쓰지 않음)
+async function generate(system, input, onText, signal, meta) {
   let wrote = false;
-  const write = t => { if (t) { wrote = true; res.write(t); } };
-
-  // 맥의 로컬 모델을 먼저 쓰고, 실패하면 Gemini, 그래도 안 되면 로컬 모델을 한 번 더 시도한다
+  const emit = t => { if (t) { wrote = true; onText(t); } };
   const tryLocal = async () => {
-    const r = await requestLocal(system, input, ac.signal, meta);
-    for await (const ev of sseEvents(r.body)) write(ev.choices?.[0]?.delta?.content);
+    const r = await requestLocal(system, input, signal, meta);
+    for await (const ev of sseEvents(r.body)) emit(ev.choices?.[0]?.delta?.content);
   };
   const tryGemini = async () => {
-    const r = await requestGemini(system, input, ac.signal);
+    const r = await requestGemini(system, input, signal);
     for await (const ev of sseEvents(r.body)) {
-      for (const p of ev.candidates?.[0]?.content?.parts || []) if (!p.thought) write(p.text);
+      for (const p of ev.candidates?.[0]?.content?.parts || []) if (!p.thought) emit(p.text);
     }
   };
   const attempts = [];
   if (localAlive()) attempts.push(['로컬', tryLocal]);
   if (GEMINI_API_KEY) attempts.push(['Gemini', tryGemini]);
   if (localAlive()) attempts.push(['로컬(재시도)', tryLocal]);
-
-  const t0 = Date.now();
   for (const [name, attempt] of attempts) {
     try {
       await attempt();
-      if (wrote) {
-        console.log(`풀이 완료: ${meta.kind || ''} ${meta.device || ''} 방문자 #${meta.visitor || '-'}${meta.test ? ' (테스트)' : ''} → ${name}, ${Math.round((Date.now() - t0) / 1000)}초`);
-        return res.end();
-      }
+      if (wrote) return name;
     } catch (e) {
-      if (ac.signal.aborted) return;
+      if (signal.aborted || wrote) throw e;
       console.warn(`${name} 실패:`, e.message);
-      if (wrote) return res.end('\n\n풀이가 중간에 끊겼어요. 다시 시도해 주세요.');
     }
   }
-  await Promise.resolve(onFail?.()).catch(() => {});
-  if (!ac.signal.aborted) res.end('풀이를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+  throw new Error('사용 가능한 모델 없음');
+}
+
+const logDone = (meta, how, t0) => console.log(`풀이 완료: ${meta.kind || ''} ${meta.device || ''} 방문자 #${meta.visitor || '-'}${meta.test ? ' (테스트)' : ''} → ${how}, ${Math.round((Date.now() - t0) / 1000)}초`);
+function startStream(res) {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  const ac = new AbortController();
+  res.on('close', () => ac.abort());
+  return ac;
+}
+
+// 프롬프트 하나로 풀이 전체를 쓴다 (타로)
+async function streamLLM(res, system, input, onFail, meta = {}) {
+  const ac = startStream(res);
+  const t0 = Date.now();
+  let wrote = false;
+  try {
+    const how = await generate(system, input, t => { wrote = true; res.write(t); }, ac.signal, meta);
+    logDone(meta, how, t0);
+    res.end();
+  } catch (e) {
+    if (ac.signal.aborted) return;
+    console.warn('풀이 실패:', e.message);
+    if (wrote) return res.end('\n\n풀이가 중간에 끊겼어요. 다시 시도해 주세요.');
+    await Promise.resolve(onFail?.()).catch(() => {});
+    res.end('풀이를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+}
+
+// 섹션마다 따로 요청해 동시에 쓰고, 화면에는 순서대로 흘려보낸다 (사주).
+// 한 번에 전체를 쓰게 하면 모델이 섹션마다 짧게 끝내므로, 섹션별로 나눠 충분한 분량을 받는다
+async function streamSections(res, system, sections, input, onFail, meta = {}) {
+  const ac = startStream(res);
+  const t0 = Date.now();
+  const bufs = sections.map(() => ''), done = sections.map(() => false);
+  let cur = 0, wroteAny = false;
+  const flush = () => {
+    while (cur < sections.length) {
+      if (bufs[cur]) { res.write(bufs[cur]); bufs[cur] = ''; wroteAny = true; }
+      if (!done[cur]) return;
+      res.write('\n\n');
+      cur++;
+    }
+  };
+  const results = await Promise.allSettled(sections.map((sec, i) =>
+    generate(`${system}\n\n[이번에 쓸 섹션]\n${sec}\n- 위 섹션 하나만, "## 제목"부터 시작해 끝까지 쓰세요. 다른 섹션은 쓰지 마세요.\n- 위 섹션 설명에 "scores 블록"이 없으면 점수 블록을 넣지 마세요.`, input,
+      t => { bufs[i] += t; if (i === cur) flush(); }, ac.signal, meta)
+      .finally(() => { done[i] = true; if (i === cur) flush(); })));
+  if (ac.signal.aborted) return;
+  flush();
+  const failed = results.filter(r => r.status === 'rejected').length;
+  if (failed === sections.length) {
+    console.warn('풀이 실패:', results[0].reason?.message);
+    await Promise.resolve(onFail?.()).catch(() => {});
+    return res.end(wroteAny ? '' : '풀이를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+  logDone(meta, `섹션 ${sections.length - failed}/${sections.length}`, t0);
+  res.end();
 }
 
 // ---------- 타로 ----------

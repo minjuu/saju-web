@@ -170,7 +170,7 @@ async function refreshQuota() {
 // ---------- 로딩 표시 ----------
 // 응답 첫 글자가 오기 전까지 진행 막대와 안내 문구를 보여준다. 막대는 시간이 지날수록 천천히 90% 근처까지 찬다
 const LOADING_MSGS = {
-  saju: ['풀이를 쓰고 있어요. 꼼꼼히 쓰느라 1~2분 정도 걸려요.', '여덟 글자와 운의 흐름을 하나씩 살펴보고 있어요.', '거의 다 됐어요. 내용을 정리하고 있어요.', '평소보다 조금 오래 걸리고 있어요. 창을 닫지 말고 잠시만 기다려 주세요.'],
+  saju: ['풀이를 쓰고 있어요. 꼼꼼히 쓰느라 1~3분 정도 걸려요.', '여덟 글자와 운의 흐름을 하나씩 살펴보고 있어요.', '거의 다 됐어요. 내용을 정리하고 있어요.', '평소보다 조금 오래 걸리고 있어요. 창을 닫지 말고 잠시만 기다려 주세요.'],
   tarot: ['카드를 읽고 있어요. 보통 20초에서 40초 정도 걸려요.', '카드의 위치와 방향을 함께 살펴보고 있어요.', '거의 다 됐어요. 내용을 정리하고 있어요.', '평소보다 조금 오래 걸리고 있어요. 창을 닫지 말고 잠시만 기다려 주세요.'],
 };
 window.startLoading = (out, kind) => {
@@ -240,9 +240,12 @@ function renderReport(out, text) {
   // 모델이 구성 안내("— 설명")까지 제목에 붙이는 경우가 있어 잘라낸다
   tmp.querySelectorAll('h2, h3').forEach(h => { h.textContent = h.textContent.split(/\s+[—–-]\s+/)[0].trim(); });
   tmp.querySelectorAll('pre > code.language-scores').forEach(code => {
+    const items = parseScores(code.textContent);
+    // 스트리밍 중이거나 항목이 너무 적은 점수 블록은 그래프 대신 숨긴다
+    if (items.length < 3) return code.parentElement.remove();
     const box = document.createElement('div');
     box.className = 'scores';
-    box.innerHTML = scoresHtml(parseScores(code.textContent));
+    box.innerHTML = scoresHtml(items);
     code.parentElement.replaceWith(box);
   });
   tmp.querySelectorAll('hr').forEach(h => h.remove());
@@ -372,12 +375,22 @@ $('#form').onsubmit = async e => {
     if (!res.ok) { $('#readingCard').classList.add('hidden'); throw new Error((await res.json()).error); }
     const reader = res.body.getReader(), dec = new TextDecoder();
     let text = '';
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      text += dec.decode(value, { stream: true });
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        text += dec.decode(value, { stream: true });
+        stopLoading();
+        renderReport(out, text);
+      }
+    } catch {} // 연결이 끊기면 아래에서 안내한다
+    // 마지막 섹션(한마디)까지 오지 않았으면 중간에 끊긴 것
+    if (!text.includes('한마디')) {
       stopLoading();
-      renderReport(out, text);
+      if (text) renderReport(out, text); else out.innerHTML = '';
+      out.insertAdjacentHTML('beforeend', `<div class="card cutoff"><p>풀이가 중간에 끊겼어요. 잠시 후 다시 시도해 주세요.</p>
+        <button type="button" class="primary" id="retryReading">다시 풀이 받기</button></div>`);
+      $('#retryReading').onclick = () => $('#form').requestSubmit();
     }
   } catch (err) {
     $('#error').textContent = err.message;

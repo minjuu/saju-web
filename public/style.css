@@ -221,7 +221,7 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 .report > #reading > .loader { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; }
 .rp-tabs {
   position: sticky; top: 64px; z-index: 5; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
-  padding: 10px 0 12px; margin-bottom: 4px; background: var(--bg);
+  padding: 10px 0 12px; margin-bottom: 12px; background: var(--bg);
 }
 .rp-tabs::-webkit-scrollbar { display: none; }
 .rp-tabs button {
@@ -230,10 +230,10 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 }
 .rp-tabs button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .rp-sec { scroll-margin-top: 130px; }
-.rp-sec > h2 { font-size: 19px; margin: 0 0 14px; letter-spacing: -0.4px; }
+.rp-sec > h2 { font-size: 19px; margin: 0 0 22px; padding-bottom: 14px; border-bottom: 1px solid var(--line); letter-spacing: -0.4px; }
 .rp-body { line-height: 1.85; font-size: 15.5px; overflow-wrap: anywhere; word-break: keep-all; }
 .rp-body h3 {
-  display: inline-block; margin: 22px 0 8px; padding: 4px 12px; border-radius: 999px;
+  display: block; width: fit-content; margin: 28px 0 12px; padding: 4px 12px; border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 9%, var(--card)); color: var(--accent); font-size: 14px; font-weight: 600;
 }
 .rp-body h3:first-child { margin-top: 0; }
@@ -241,6 +241,9 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 .rp-body p { margin: 0 0 4px; }
 .rp-body strong { color: var(--accent); }
 .rp-letter { background: #f6efe1; border-color: #eadfc8; }
+.rp-letter > h2 { border-bottom-color: #eadfc8; }
+.cutoff p { margin: 0; color: var(--muted); }
+.cutoff .primary { margin-top: 14px; }
 
 .scores .radar { display: block; width: 100%; max-width: 320px; margin: 0 auto 10px; }
 .radar .grid polygon, .radar .grid line { fill: none; stroke: var(--line); stroke-width: 1; }

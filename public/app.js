@@ -3,14 +3,15 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 
 // ---------- 콘텐츠 ----------
 const YEAR = new Date().getFullYear();
+const NEW_YEAR = new Date().getMonth() >= 9 ? YEAR + 1 : YEAR; // 10월부터는 다음 해 신년 운세
 const TOPICS = {
   total: { mark: '命', title: '평생 사주', desc: '타고난 성격부터 일, 돈, 사랑, 앞으로의 흐름까지 한 번에 알아봐요!', color: 'c1', badge: '가장 많이 봐요' },
-  year: { mark: '年', title: `${YEAR} 신년 운세`, desc: '올해 어떤 일이 기다리고 있을지 계절별로 미리 알아봐요!', color: 'c2', badge: 'NEW' },
+  year: { mark: '年', title: `${NEW_YEAR} 신년 운세`, desc: `${NEW_YEAR}년에 어떤 일이 기다리고 있을지 계절별로 미리 알아봐요!`, color: 'c2', badge: 'NEW' },
   love: { mark: '緣', title: '연애운', desc: '나의 연애 스타일과 잘 맞는 사람, 올해 찾아올 인연을 알아봐요!', color: 'c3' },
 };
 const SLIDES = [
   { title: '어떤 운세가 궁금하세요?', sub: '타고난 성격부터 올해의 흐름까지 알려드려요', topic: 'total', bg: 'b1' },
-  { title: `${YEAR}년, 올해 나의 운세는?`, sub: '계절마다 어떤 흐름이 오는지 미리 확인해 보세요', topic: 'year', bg: 'b2' },
+  { title: `${NEW_YEAR}년, 나의 운세는?`, sub: '계절마다 어떤 흐름이 오는지 미리 확인해 보세요', topic: 'year', bg: 'b2' },
   { title: '하루 한 번 무료 풀이', sub: '로그인하면 하루 한 번 무료로 볼 수 있어요', topic: 'total', bg: 'b3' },
 ];
 
@@ -190,13 +191,15 @@ window.startLoading = (out, kind) => {
 
 // 따옴표("…", “…”) 안의 글자를 굵게 (태그 안 속성은 건드리지 않도록 텍스트 노드만 바꾼다)
 window.boldQuotes = root => {
+  // **"…"**처럼 이미 굵은 글자를 감싼 따옴표도 지운다
+  root.querySelectorAll('strong').forEach(st => { st.textContent = st.textContent.replace(/^["“'‘]\s*(.+?)\s*["”'’]$/, '$1'); });
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes = [];
   while (walker.nextNode()) if (/["“][^"”]+["”]/.test(walker.currentNode.nodeValue)) nodes.push(walker.currentNode);
   for (const n of nodes) {
-    if (n.parentElement.closest('strong, h2, h3, code')) continue;
+    if (!n.parentElement || n.parentElement.closest('strong, h2, h3, code')) continue;
     const span = document.createElement('span');
-    span.innerHTML = esc(n.nodeValue).replace(/(&quot;|“)([^"”<]{1,80}?)(&quot;|”)/g, '<strong>$1$2$3</strong>');
+    span.innerHTML = esc(n.nodeValue).replace(/(&quot;|“)([^"”<]{1,80}?)(&quot;|”)/g, '<strong>$2</strong>');
     n.replaceWith(...span.childNodes);
   }
 };
@@ -286,7 +289,13 @@ function renderReport(out, text) {
     if (!cur) { cur = { title: '', nodes: [] }; sections.push(cur); }
     cur.nodes.push(node);
   }
-  // 편지(한마디)는 항상 맨 끝에 둔다
+  // 같은 제목의 섹션이 두 번 나오면(섹션별로 따로 쓰다 보니 생김) 내용이 긴 쪽만 남긴다
+  const textLen = s => s.nodes.reduce((n, x) => n + (x.textContent || '').trim().length, 0);
+  for (let i = sections.length - 1; i >= 0; i--) {
+    const j = sections.findIndex((t, k) => k !== i && t.title && t.title === sections[i].title);
+    if (j >= 0) sections.splice(textLen(sections[i]) >= textLen(sections[j]) ? j : i, 1);
+  }
+    // 편지(한마디)는 항상 맨 끝에 둔다
   const li = sections.findIndex(s => s.title.includes('한마디'));
   if (li >= 0 && li < sections.length - 1) sections.push(sections.splice(li, 1)[0]);
   const titled = sections.filter(s => s.title);

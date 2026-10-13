@@ -110,7 +110,7 @@ function incomingRelations(pillars, branch) {
   return out;
 }
 
-function computeSaju({ calendar, year, month, day, hour, minute, timeUnknown, leapMonth, gender }) {
+function computeSaju({ calendar, year, month, day, hour, minute, timeUnknown, leapMonth, gender }, opts = {}) {
   const h = timeUnknown ? 12 : hour;
   const mi = timeUnknown ? 0 : minute;
   const lunar = calendar === 'lunar'
@@ -144,15 +144,18 @@ function computeSaju({ calendar, year, month, day, hour, minute, timeUnknown, le
     const [g, z] = [...gz];
     return `${gz}(${ko(gz)}) — 천간 ${g}${ELEMENT[g]} ${tenGodOf(dayStem, g)}, 지지 ${z}${ELEMENT[z]} ${tenGodOf(dayStem, LunarUtil.ZHI_HIDE_GAN[z][0])}`;
   };
-  // 세운: 올해부터 3년
-  const yearlyLuck = [0, 1, 2].map(i => {
-    const y = thisYear + i, gz = yearGanZhi(y);
-    return { year: y, ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
+  const c = timeContext();
+  // 세운: 신년 운세는 그 해, 나머지는 올해부터 3년
+  const luckYears = opts.newYear ? [c.newYear] : [c.ty, c.ty + 1, c.ty + 2];
+  const yearlyLuck = luckYears.map((y, i) => {
+    const gz = yearGanZhi(y);
+    return { year: opts.newYear ? `${y}년` : c.years[i], ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
   });
-  // 올해 월운: 절기 기준 각 달의 간지 (양력 15일 기준)
+  // 월운(절기 기준, 양력 15일): 신년 운세는 그 해 1~12월, 나머지는 이번 달부터 12개월
   const monthlyLuck = Array.from({ length: 12 }, (_, i) => {
-    const gz = Solar.fromYmd(thisYear, i + 1, 15).getLunar().getMonthInGanZhiExact();
-    return { month: i + 1, ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
+    const [y, m] = opts.newYear ? [c.newYear, i + 1] : c.add(i);
+    const gz = Solar.fromYmd(y, m, 15).getLunar().getMonthInGanZhiExact();
+    return { month: `${y}년 ${m}월`, ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
   });
   const age = thisYear - solar.getYear() + 1;
   const current = daeun.filter(d => d.startAge <= age).pop();
@@ -226,24 +229,45 @@ const INSTRUCTIONS = `당신은 한국 전통 명리학에 밝은 상담가입�
 - "## 사주토끼의 한마디"는 항상 맨 마지막 섹션이며, 이름을 부르며 시작하는 3~4문장짜리 짧은 편지로 "###" 없이 쓰세요.
 - 구분선(---)은 쓰지 마세요.`;
 
+// 오늘 기준 시간 범위: 연애·평생 사주는 지금부터 앞으로, 신년 운세는 10월부터 다음 해를 본다
+function timeContext() {
+  const [ty, tm] = today().split('-').map(Number);
+  const add = k => { const t = ty * 12 + (tm - 1) + k; return [Math.floor(t / 12), (t % 12) + 1]; };
+  // 지금 달부터 3개월씩 네 구간 (예: 2026년 10~12월, 2027년 1~3월 …)
+  const periods = [0, 3, 6, 9].map(k => {
+    const [y1, m1] = add(k), [y2, m2] = add(k + 2);
+    return y1 === y2 ? `${y1}년 ${m1}~${m2}월` : `${y1}년 ${m1}월~${y2}년 ${m2}월`;
+  });
+  return {
+    ty, tm, add, periods,
+    years: [tm >= 7 ? `${ty}년 하반기` : `${ty}년`, `${ty + 1}년`, `${ty + 2}년`],
+    // 제목에 그대로 쓸 "연도 + 세운 간지" (모델이 간지를 틀리게 쓰지 않도록 서버가 정해준다)
+    yearTitles: [ty, ty + 1, ty + 2].map((y, i) => {
+      const gz = yearGanZhi(y);
+      return `${i === 0 && tm >= 7 ? `${y}년 하반기` : `${y}년`} ${ko(gz)}(${gz})`;
+    }),
+    newYear: tm >= 10 ? ty + 1 : ty,
+  };
+}
+
 // 홈 화면 카드별 풀이 구성
 const TOPICS = {
-  total: y => `## 타고난 기질 (### 한 줄 요약 — 일주 중심 핵심과 키워드 / ### 성격 / ### 강점 / ### 약점)
+  total: c => `## 타고난 기질 (### 한 줄 요약 — 일주 중심 핵심과 키워드 / ### 성격 / ### 강점 / ### 약점)
 ## 일과 돈 (### 잘 맞는 일 / ### 돈이 들어오는 방식 / ### 조심할 점)
 ## 사랑과 관계 (### 연애 스타일 / ### 배우자 인연 / ### 사람 관계)
-## 앞으로 3년 (### ${y}년 / ### ${y + 1}년 / ### ${y + 2}년 — 각각 세운 간지를 제목에 함께, 예: "### ${y}년 병오(丙午)" / 섹션 맨 끝에 scores 블록, 항목: ${y}년, ${y + 1}년, ${y + 2}년 — 연도별 운 점수)
+## 앞으로 3년 (${c.yearTitles.map(y => `### ${y}`).join(' / ')} — 소제목은 이 글자 그대로. 지금이 ${c.tm}월이니 첫 해는 남은 기간만 / 섹션 맨 끝에 scores 블록, 항목: ${c.years.join(', ')} — 기간별 운 점수)
 ## 나의 능력치 (scores 블록, 항목: 리더십, 추진력, 끈기, 표현력, 재물 감각, 대인관계)
 ## 사주토끼의 한마디`,
-  year: y => `## ${y}년 한눈에 (### 올해의 키워드 / ### 총평)
-## 계절별 흐름 (### 봄 (1~3월) / ### 여름 (4~6월) / ### 가을 (7~9월) / ### 겨울 (10~12월) — 월운 데이터를 근거로 / 섹션 맨 끝에 scores 블록, 항목: 봄, 여름, 가을, 겨울 — 계절별 운 점수)
+  year: c => `## ${c.newYear}년 한눈에 (### 올해의 키워드 / ### 총평)
+## 계절별 흐름 (### 봄 (1~3월) / ### 여름 (4~6월) / ### 가을 (7~9월) / ### 겨울 (10~12월) — ${c.newYear}년 월운 데이터를 근거로 / 섹션 맨 끝에 scores 블록, 항목: 봄, 여름, 가을, 겨울 — 계절별 운 점수)
 ## 분야별 운 (### 일 / ### 돈 / ### 연애 / ### 건강)
-## 올해 운 점수 (scores 블록, 항목: 총운, 재물운, 직업운, 연애운, 건강운, 대인운)
+## ${c.newYear}년 운 점수 (scores 블록, 항목: 총운, 재물운, 직업운, 연애운, 건강운, 대인운)
 ## 주의할 시기 (### 조심할 달 / ### 이렇게 보내세요)
 ## 사주토끼의 한마디`,
-  love: y => `## 연애 성향 (### 연애 스타일 / ### 매력 포인트 / ### 사랑받고 싶은 방식 / ### 조심할 점)
-## 인연 분석 (### 솔로라면 — 인연이 올 시기와 상대의 분위기·만나는 경로 / ### 연애 중이라면 — 지금 관계의 흐름 / ### 결혼운 — 배우자 별(여성은 관성, 남성은 재성)과 일지 근거)
-## 올해의 연애 흐름 (### 봄 (1~3월) / ### 여름 (4~6월) / ### 가을 (7~9월) / ### 겨울 (10~12월) / ### 올해의 핵심 — 월운 데이터를 근거로 / 섹션 맨 끝에 scores 블록, 항목: 봄, 여름, 가을, 겨울 — 계절별 연애운 점수)
-## 앞으로 3년의 사랑 (### ${y}년 / ### ${y + 1}년 / ### ${y + 2}년 — 각각 세운 간지를 제목에 함께, 예: "### ${y}년 병오(丙午)" / 섹션 맨 끝에 scores 블록, 항목: ${y}년, ${y + 1}년, ${y + 2}년 — 연도별 연애운 점수)
+  love: c => `## 연애 성향 (### 연애 스타일 / ### 매력 포인트 / ### 사랑받고 싶은 방식 / ### 조심할 점)
+## 인연 분석 (### 솔로라면 — 지금부터 인연이 올 시기와 상대의 분위기·만나는 경로 / ### 연애 중이라면 — 지금 관계의 흐름 / ### 결혼운 — 배우자 별(여성은 관성, 남성은 재성)과 일지 근거)
+## 앞으로 1년의 연애 흐름 (${c.periods.map(p => `### ${p}`).join(' / ')} / ### 앞으로 1년의 핵심 — 월운 데이터를 근거로 / 섹션 맨 끝에 scores 블록, 항목: ${c.periods.join(', ')} — 구간별 연애운 점수)
+## 앞으로 3년의 사랑 (${c.yearTitles.map(y => `### ${y}`).join(' / ')} — 소제목은 이 글자 그대로. 지금이 ${c.tm}월이니 첫 해는 남은 기간만 / 섹션 맨 끝에 scores 블록, 항목: ${c.years.join(', ')} — 기간별 연애운 점수)
 ## 반복되는 패턴 (### 무의식 패턴 / ### 반복되는 흐름 / ### 바꾸는 방법)
 ## 연애 능력치 (scores 블록, 항목: 표현력, 공감력, 인내심, 독립성, 헌신도, 유연성)
 ## 잘 맞는 사람 (### 잘 맞는 사람 / ### 안 맞는 사람 / ### 가까워지는 순간)
@@ -346,7 +370,7 @@ app.post('/api/reading', async (req, res) => {
   const topic = req.body.topic || 'total';
 
   let saju;
-  try { saju = computeSaju(req.body); } catch { return res.status(400).json({ error: '존재하지 않는 날짜입니다' }); }
+  try { saju = computeSaju(req.body, { newYear: topic === 'year' }); } catch { return res.status(400).json({ error: '존재하지 않는 날짜입니다' }); }
   if (LIMIT) try {
     if (!(await claimQuota(user.id))) return res.status(429).json({ error: '풀이는 계정당 하루 한 번만 볼 수 있습니다. 내일 다시 이용해 주세요.' });
   } catch (e) {
@@ -360,7 +384,7 @@ ${name ? `이름: ${name}\n` : ''}사주 데이터:
 ${JSON.stringify(saju, null, 2)}
 ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
-  const sections = TOPICS[topic](Number(today().slice(0, 4))).split('\n');
+  const sections = TOPICS[topic](timeContext()).split('\n');
   if (req.body.question) sections.splice(sections.length - 1, 0, '## 질문에 대한 답변 — 이 섹션은 "### 답변" 소제목 하나만 두고, 사주 근거를 들어 질문에 직접 답하기');
   const outline = `[전체 구성 — 참고용]\n${sections.join('\n')}`;
   await streamSections(res, `${INSTRUCTIONS}\n\n${outline}`, sections, input, () => LIMIT && refundQuota(user.id), requestMeta(req, topic));
@@ -519,7 +543,7 @@ async function streamSections(res, system, sections, input, onFail, meta = {}) {
   };
   const rid = crypto.randomBytes(4).toString('hex'); // 맥 쪽 기록에서 한 풀이로 묶기 위한 번호
   const results = await Promise.allSettled(sections.map((sec, i) =>
-    generate(`${system}\n\n[이번에 쓸 섹션]\n${sec}\n- 위 섹션 하나만, "## 제목"부터 시작해 끝까지 쓰세요. 다른 섹션은 쓰지 마세요.\n- 위 섹션 설명에 "scores 블록"이 없으면 점수 블록을 넣지 마세요.`, input,
+    generate(`${system}\n\n[이번에 쓸 섹션]\n${sec}\n- 위 섹션 하나만, "## 제목"부터 시작해 끝까지 쓰세요. 다른 섹션(특히 "사주토끼의 한마디")은 쓰지 마세요.\n- 위 섹션 설명에 "scores 블록"이 없으면 점수 블록을 넣지 마세요.`, input,
       t => { bufs[i] += t; if (i === cur) flush(); }, ac.signal, { ...meta, rid, part: i, parts: sections.length })
       .finally(() => { done[i] = true; if (i === cur) flush(); })));
   if (ac.signal.aborted) return;

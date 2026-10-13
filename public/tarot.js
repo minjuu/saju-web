@@ -21,7 +21,7 @@
     worry: { mark: '問', title: '고민 타로', desc: '고민을 적고 세 장을 뽑아 과거, 지금, 앞으로를 살펴봐요!', color: 'c2',
       positions: ['과거', '현재', '미래'], ask: true, required: true, placeholder: '예) 지금 회사를 계속 다녀야 할까요?' },
   };
-  const SHOWN = 24; // 펼쳐 놓는 카드 수
+  const SHOWN = 40; // 펼쳐 놓는 카드 수 (PC 10장 × 4줄, 모바일 8장 × 5줄)
 
   const $ = s => document.querySelector(s);
   $('#tarotCards').innerHTML = Object.entries(SPREADS).map(([key, t]) => `

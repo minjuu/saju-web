@@ -192,7 +192,7 @@ footer { text-align: center; font-size: 12px; color: var(--muted); padding: 24px
 @keyframes flip { from { transform: rotateY(-180deg); } }
 @keyframes flip-rev { from { transform: rotateY(-180deg) rotate(180deg); } }
 .tarot-guide { text-align: center; color: var(--muted); font-size: 14px; margin: 22px 0 12px; }
-.deck { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; }
+.deck { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
 .dcard { aspect-ratio: 240 / 410; border: 0; border-radius: 6px; cursor: pointer; transition: transform .15s, opacity .2s; }
 .dcard:hover:not(:disabled) { transform: translateY(-4px); }
 .dcard:disabled { cursor: default; opacity: .35; }

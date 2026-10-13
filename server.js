@@ -358,7 +358,7 @@ async function requestLocal(system, input, signal) {
       body: JSON.stringify({
         model: LOCAL_LLM_MODEL,
         stream: true,
-        reasoning_effort: 'medium',
+        reasoning_effort: 'low',
         messages: [{ role: 'system', content: system }, { role: 'user', content: input }],
       }),
       signal: AbortSignal.any([signal, timeout.signal]),
@@ -394,33 +394,34 @@ async function streamLLM(res, system, input, onFail) {
   let wrote = false;
   const write = t => { if (t) { wrote = true; res.write(t); } };
 
-  if (localAlive()) {
-    try {
-      const r = await requestLocal(system, input, ac.signal);
-      for await (const ev of sseEvents(r.body)) write(ev.choices?.[0]?.delta?.content);
-      if (wrote) return res.end();
-    } catch (e) {
-      if (ac.signal.aborted) return;
-      console.warn('로컬 모델 실패, Gemini로 전환:', e.message);
-      if (wrote) return res.end('\n\n풀이가 중간에 끊겼습니다. 다시 시도하세요.');
-    }
-  }
-
-  try {
-    if (!GEMINI_API_KEY) throw Object.assign(new Error('사용 가능한 모델 없음'), { busy: true });
+  // 맥의 로컬 모델을 먼저 쓰고, 실패하면 Gemini, 그래도 안 되면 로컬 모델을 한 번 더 시도한다
+  const tryLocal = async () => {
+    const r = await requestLocal(system, input, ac.signal);
+    for await (const ev of sseEvents(r.body)) write(ev.choices?.[0]?.delta?.content);
+  };
+  const tryGemini = async () => {
     const r = await requestGemini(system, input, ac.signal);
     for await (const ev of sseEvents(r.body)) {
       for (const p of ev.candidates?.[0]?.content?.parts || []) if (!p.thought) write(p.text);
     }
-    res.end();
-  } catch (e) {
-    await Promise.resolve(onFail?.()).catch(() => {});
-    if (ac.signal.aborted) return;
-    console.error('Gemini 오류:', e.message);
-    res.end(e.busy
-      ? '\n\n지금 이용자가 많아 풀이를 작성하지 못했습니다. 잠시 후 다시 시도하세요.'
-      : '\n\n풀이 작성 중 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
+  };
+  const attempts = [];
+  if (localAlive()) attempts.push(['로컬', tryLocal]);
+  if (GEMINI_API_KEY) attempts.push(['Gemini', tryGemini]);
+  if (localAlive()) attempts.push(['로컬(재시도)', tryLocal]);
+
+  for (const [name, attempt] of attempts) {
+    try {
+      await attempt();
+      if (wrote) return res.end();
+    } catch (e) {
+      if (ac.signal.aborted) return;
+      console.warn(`${name} 실패:`, e.message);
+      if (wrote) return res.end('\n\n풀이가 중간에 끊겼어요. 다시 시도해 주세요.');
+    }
   }
+  await Promise.resolve(onFail?.()).catch(() => {});
+  if (!ac.signal.aborted) res.end('풀이를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
 }
 
 // ---------- 타로 ----------

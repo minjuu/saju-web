@@ -249,6 +249,12 @@ function renderReport(out, text) {
     code.parentElement.replaceWith(box);
   });
   tmp.querySelectorAll('hr').forEach(h => h.remove());
+  // 번호 목록(1. 2.)은 번호 없이 문단으로 바꾼다
+  tmp.querySelectorAll('ol, ul').forEach(list => {
+    const ps = [...list.children].map(li => { const p = document.createElement('p'); p.innerHTML = li.innerHTML; return p; });
+    list.replaceWith(...ps);
+  });
+  tmp.querySelectorAll('p').forEach(p => { p.innerHTML = p.innerHTML.replace(/^\s*(\d+[.)]|[①-⑨])\s+/, ''); });
   const sections = [];
   let cur = null;
   for (const node of [...tmp.childNodes]) {

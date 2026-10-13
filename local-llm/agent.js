@@ -1,7 +1,7 @@
 // 맥에서 돌리는 로컬 LLM 연결기
 // 1) 비밀 키를 확인하는 프록시로 Ollama(127.0.0.1:11434)를 감싼다
 // 2) Cloudflare 임시 터널로 프록시를 인터넷에 연다
-// 3) 터널 주소를 사이트(Render)에 1분마다 등록한다 — 주소가 바뀌거나 서버가 재시작돼도 다시 연결된다
+// 3) 터널 주소를 사이트(Render)에 20초마다 등록한다 — 주소가 바뀌거나 서버가 재시작돼도 다시 연결된다
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -69,7 +69,7 @@ async function register() {
     console.warn('등록 실패:', e.message);
   }
 }
-setInterval(register, 60000);
+setInterval(register, 20000); // 서버가 재배포되면 등록 정보가 사라지므로 자주 알린다
 
 // Ollama는 5분간 안 쓰면 모델을 메모리에서 내린다. 다시 올리는 데 시간이 걸려 첫 풀이가 늦어지므로 계속 올려 둔다
 async function keepWarm() {

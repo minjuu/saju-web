@@ -5,12 +5,12 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const YEAR = new Date().getFullYear();
 const TOPICS = {
   total: { mark: '命', title: '평생 사주', desc: '타고난 성향, 재물, 직업, 관계, 대운까지 한 번에 봅니다.', color: 'c1', badge: '가장 많이 봐요' },
-  year: { mark: '年', title: `${YEAR} 신년 운세`, desc: '올해의 흐름을 상·하반기와 월별로 정리합니다.', color: 'c2', badge: 'NEW' },
+  year: { mark: '年', title: `${YEAR} 신년 운세`, desc: '올해의 흐름을 상반기와 하반기, 월별로 정리합니다.', color: 'c2', badge: 'NEW' },
   love: { mark: '緣', title: '연애운', desc: '연애 성향과 잘 맞는 상대, 올해의 인연을 봅니다.', color: 'c3' },
 };
 const SLIDES = [
   { title: '어떤 운세가 궁금하세요?', sub: '타고난 성향부터 올해의 흐름까지', topic: 'total', bg: 'b1' },
-  { title: `${YEAR}년, 올해의 흐름`, sub: '상반기·하반기와 월별 운세를 확인하세요', topic: 'year', bg: 'b2' },
+  { title: `${YEAR}년, 올해의 흐름`, sub: '상반기와 하반기, 월별 운세를 확인하세요', topic: 'year', bg: 'b2' },
   { title: '하루 한 번 무료 풀이', sub: '로그인하면 계정당 하루 한 번 볼 수 있습니다', topic: 'total', bg: 'b3' },
 ];
 

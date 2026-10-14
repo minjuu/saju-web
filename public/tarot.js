@@ -16,6 +16,8 @@
   const SPREADS = {
     today: { mark: '今', title: '오늘의 타로', desc: '카드 한 장으로 오늘의 운세를 알아봐요!', color: 'c7',
       positions: ['오늘의 카드'], ask: false },
+    one: { mark: '答', title: '질문 타로', desc: '궁금한 질문 하나에 카드 한 장으로 답해 드려요!', color: 'c6',
+      positions: ['질문의 답'], ask: true, required: true, placeholder: '예) 이번 달에 연락이 올까요?' },
     love: { mark: '心', title: '연애 타로', desc: '내 마음, 그 사람 마음, 앞으로 우리 사이를 세 장으로 알아봐요!', color: 'c3',
       positions: ['나의 마음', '상대의 마음', '앞으로의 흐름'], ask: true, placeholder: '예) 그 사람과 다시 연락이 될까요?' },
     worry: { mark: '問', title: '고민 타로', desc: '고민을 적고 세 장을 뽑아 과거, 지금, 앞으로를 살펴봐요!', color: 'c2',

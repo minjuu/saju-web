@@ -157,6 +157,13 @@ function computeSaju({ calendar, year, month, day, hour, minute, timeUnknown, le
     const gz = Solar.fromYmd(y, m, 15).getLunar().getMonthInGanZhiExact();
     return { month: `${y}년 ${m}월`, ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
   });
+  // 일진: 오늘의 사주에서 쓰는 오늘 날짜의 간지
+  const dailyLuck = opts.daily ? (() => {
+    const [y, m, d] = today().split('-').map(Number);
+    const gz = Solar.fromYmd(y, m, d).getLunar().getDayInGanZhiExact();
+    const mz = Solar.fromYmd(y, m, d).getLunar().getMonthInGanZhiExact();
+    return { date: today(), dayGanZhi: describe(gz), monthGanZhi: describe(mz), relations: incomingRelations(pillars, gz[1]) };
+  })() : undefined;
   const age = thisYear - solar.getYear() + 1;
   const current = daeun.filter(d => d.startAge <= age).pop();
 
@@ -168,7 +175,7 @@ function computeSaju({ calendar, year, month, day, hour, minute, timeUnknown, le
     relations: natalRelations(pillars),
     currentDaeun: current ? `${current.hanja}(${current.ganZhi}) 대운, ${current.startAge}세부터` : '대운 시작 전',
     koreanAge: age,
-    yearlyLuck, monthlyLuck,
+    yearlyLuck, monthlyLuck, dailyLuck,
   };
 }
 
@@ -265,6 +272,11 @@ const TOPICS = {
 ## 분야별 운 (### 일 / ### 돈 / ### 연애 / ### 건강)
 ## ${c.newYear}년 운 점수 (scores 블록, 항목: 총운, 재물운, 직업운, 연애운, 건강운, 대인운)
 ## 주의할 시기 (### 조심할 달 / ### 이렇게 보내세요)
+## 사주토끼의 한마디`,
+  daily: c => `## 오늘 한눈에 (### 오늘의 키워드 / ### 총평 — 일진(dailyLuck)과 원국의 관계를 근거로)
+## 분야별 오늘 (### 일 / ### 돈 / ### 연애 / ### 사람)
+## 오늘의 운 점수 (scores 블록, 항목: 총운, 재물운, 일운, 연애운, 건강운, 대인운)
+## 오늘의 행운 (### 행운의 색과 숫자 — 부족한 오행 근거 / ### 좋은 시간대 / ### 오늘 이렇게 보내세요)
 ## 사주토끼의 한마디`,
   love: c => `## 연애 성향 (### 연애 스타일 / ### 매력 포인트 / ### 사랑받고 싶은 방식 / ### 조심할 점)
 ## 인연 분석 (### 솔로라면 — 지금부터 인연이 올 시기와 상대의 분위기·만나는 경로 / ### 연애 중이라면 — 지금 관계의 흐름 / ### 결혼운 — 배우자 별(여성은 관성, 남성은 재성)과 일지 근거)
@@ -372,7 +384,7 @@ app.post('/api/reading', async (req, res) => {
   const topic = req.body.topic || 'total';
 
   let saju;
-  try { saju = computeSaju(req.body, { newYear: topic === 'year' }); } catch { return res.status(400).json({ error: '존재하지 않는 날짜입니다' }); }
+  try { saju = computeSaju(req.body, { newYear: topic === 'year', daily: topic === 'daily' }); } catch { return res.status(400).json({ error: '존재하지 않는 날짜입니다' }); }
   if (LIMIT) try {
     if (!(await claimQuota(user.id))) return res.status(429).json({ error: '풀이는 계정당 하루 한 번만 볼 수 있습니다. 내일 다시 이용해 주세요.' });
   } catch (e) {
@@ -388,7 +400,8 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
   const sections = TOPICS[topic](timeContext()).split('\n');
   if (req.body.question) sections.splice(sections.length - 1, 0, '## 질문에 대한 답변 — 이 섹션은 "### 답변" 소제목 하나만 두고, 사주 근거를 들어 질문에 직접 답하기');
-  const outline = `[전체 구성 — 참고용]\n${sections.join('\n')}`;
+  const outline = `[전체 구성 — 참고용]\n${sections.join('\n')}` + (topic === 'daily'
+    ? '\n\n[오늘의 사주 분량] 하루 운세라서 각 "###"는 한 문단 4~6문장으로 짧고 실용적으로 쓰세요. 오늘(dailyLuck.date) 하루에 집중하세요.' : '');
   const onFail = () => LIMIT && refundQuota(user.id), meta = requestMeta(req, topic);
   if (localAlive()) {
     await streamSections(res, `${INSTRUCTIONS}\n\n${outline}`, sections, input, onFail, meta);
@@ -412,7 +425,7 @@ function deviceOf(ua = '') {
     : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox/.test(ua) ? 'Firefox' : '기타';
   return `${os}·${br}`;
 }
-const KIND = { total: '평생 사주', year: '신년 운세', love: '연애운', today: '오늘의 타로', worry: '고민 타로' };
+const KIND = { total: '평생 사주', year: '신년 운세', love: '연애운', daily: '오늘의 사주', today: '오늘의 타로', worry: '고민 타로', one: '질문 타로' };
 const requestMeta = (req, key, tarot) => ({
   kind: tarot && key === 'love' ? '연애 타로' : KIND[key] || key,
   device: deviceOf(req.get('user-agent')),
@@ -578,6 +591,11 @@ const RANKS = ['에이스', '2', '3', '4', '5', '6', '7', '8', '9', '10', '페�
 const DECK = [...MAJOR, ...SUITS.flatMap(s => RANKS.map(r => `${s} ${r}`))];
 
 const SPREADS = {
+  one: {
+    count: 1, positions: ['질문의 답'], topic: '사용자의 질문 하나',
+    sections: '## 한눈에 보기 (질문에 대한 답을 먼저 2문장으로) / "## 질문의 답 — 별 (정방향)"처럼 실제 카드 이름으로 된 제목 / ## 이렇게 해보세요 (조언 2개, "- "로)',
+    guide: '질문 하나에 카드 한 장으로 답해요. 예·아니오로 답할 수 있는 질문이면 카드 의미와 방향을 근거로 가능성이 높은지 낮은지를 첫 문장에 분명히 말해주세요. 시기를 묻는 질문이면 카드 기운에 맞는 대략적인 시기를 말해주세요.',
+  },
   today: {
     count: 1, positions: ['오늘의 카드'], topic: '오늘 하루의 흐름',
     sections: '## 오늘의 카드 — 별 (정방향)처럼 실제 카드 이름으로 된 제목 / ## 오늘 이렇게 보내세요 (조언 2개, "- "로)',

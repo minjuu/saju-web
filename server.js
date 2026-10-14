@@ -273,10 +273,10 @@ const TOPICS = {
 ## ${c.newYear}년 운 점수 (scores 블록, 항목: 총운, 재물운, 직업운, 연애운, 건강운, 대인운)
 ## 주의할 시기 (### 조심할 달 / ### 이렇게 보내세요)
 ## 사주토끼의 한마디`,
-  daily: c => `## 오늘 한눈에 (### 오늘의 키워드 / ### 총평 — 일진(dailyLuck)과 원국의 관계를 근거로)
+  daily: c => `## 오늘 한눈에 (### 오늘의 키워드 / ### 총평)
 ## 분야별 오늘 (### 일 / ### 돈 / ### 연애 / ### 사람)
 ## 오늘의 운 점수 (scores 블록, 항목: 총운, 재물운, 일운, 연애운, 건강운, 대인운)
-## 오늘의 행운 (### 행운의 색과 숫자 — 부족한 오행 근거 / ### 좋은 시간대 / ### 오늘 이렇게 보내세요)
+## 오늘의 행운 (### 행운 포인트)
 ## 사주토끼의 한마디`,
   love: c => `## 연애 성향 (### 연애 스타일 / ### 매력 포인트 / ### 사랑받고 싶은 방식 / ### 조심할 점)
 ## 인연 분석 (### 솔로라면 — 지금부터 인연이 올 시기와 상대의 분위기·만나는 경로 / ### 연애 중이라면 — 지금 관계의 흐름 / ### 결혼운 — 배우자 별(여성은 관성, 남성은 재성)과 일지 근거)
@@ -400,14 +400,15 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
   const sections = TOPICS[topic](timeContext()).split('\n');
   if (req.body.question) sections.splice(sections.length - 1, 0, '## 질문에 대한 답변 — 이 섹션은 "### 답변" 소제목 하나만 두고, 사주 근거를 들어 질문에 직접 답하기');
-  const outline = `[전체 구성 — 참고용]\n${sections.join('\n')}` + (topic === 'daily'
-    ? '\n\n[오늘의 사주 분량] 하루 운세라서 각 "###"는 한 문단 4~6문장으로 짧고 실용적으로 쓰세요. 오늘(dailyLuck.date) 하루에 집중하세요.' : '');
+  const lengthNote = topic === 'daily'
+    ? '\n\n[오늘의 사주 분량 — 위 [깊이]의 문장 수 규칙보다 우선] 하루 운세라서 간략하게 써요. 각 "###"는 한 문단 2~3문장, "사주토끼의 한마디"는 2문장으로 짧고 실용적으로 쓰세요. 오늘(dailyLuck.date) 하루에만 집중하세요. "### 오늘의 키워드" 아래 본문에 키워드 3개를 굵게 쓰고 한 문장으로 설명하세요(제목에는 키워드를 넣지 마세요). "### 총평"은 일진(dailyLuck)과 원국의 관계를 근거로 쓰고, "### 행운 포인트"에는 행운의 색·숫자·좋은 시간대를 한 문단에 쓰세요.' : '';
+  const outline = `[전체 구성 — 참고용]\n${sections.join('\n')}${lengthNote}`;
   const onFail = () => LIMIT && refundQuota(user.id), meta = requestMeta(req, topic);
-  if (localAlive()) {
+  if (localAlive() && topic !== 'daily') { // 오늘의 사주는 짧아서 한 번에 쓰는 게 더 빠르다
     await streamSections(res, `${INSTRUCTIONS}\n\n${outline}`, sections, input, onFail, meta);
   } else {
-    // 맥이 꺼져 있으면 Gemini로 한 번에 쓴다 (섹션별로 나누면 무료 한도를 7~8배 빨리 써버린다)
-    await streamLLM(res, `${INSTRUCTIONS}\n\n[구성 — 이 순서대로 모든 섹션을 빠짐없이, 각 섹션의 "## 제목"(마지막 "## 사주토끼의 한마디" 포함)도 반드시 쓰세요]\n${sections.join('\n')}`, input, onFail, meta);
+    // 맥이 꺼져 있거나 짧은 풀이면 한 번에 쓴다 (섹션별로 나누면 Gemini 무료 한도를 7~8배 빨리 써버린다)
+    await streamLLM(res, `${INSTRUCTIONS}\n\n[구성 — 이 순서대로 모든 섹션을 빠짐없이, 각 섹션의 "## 제목"(마지막 "## 사주토끼의 한마디" 포함)도 반드시 쓰세요]\n${sections.join('\n')}${lengthNote}`, input, onFail, meta);
   }
 });
 

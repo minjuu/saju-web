@@ -558,19 +558,39 @@ async function streamSections(res, system, sections, input, onFail, meta = {}) {
   const t0 = Date.now();
   const bufs = sections.map(() => ''), done = sections.map(() => false);
   let cur = 0, wroteAny = false;
+  const wroteSection = sections.map(() => false);
   const flush = () => {
     while (cur < sections.length) {
-      if (bufs[cur]) { res.write(bufs[cur]); bufs[cur] = ''; wroteAny = true; }
+      if (bufs[cur]) { res.write(bufs[cur]); bufs[cur] = ''; wroteAny = true; wroteSection[cur] = true; }
       if (!done[cur]) return;
       res.write('\n\n');
       cur++;
     }
   };
   const rid = crypto.randomBytes(4).toString('hex'); // 맥 쪽 기록에서 한 풀이로 묶기 위한 번호
-  const results = await Promise.allSettled(sections.map((sec, i) =>
-    generate(`${system}\n\n[이번에 쓸 섹션]\n${sec}\n- 위 섹션 하나만, "## 제목"부터 시작해 끝까지 쓰세요. 다른 섹션(특히 "사주토끼의 한마디")은 쓰지 마세요.\n- 위 섹션 설명에 "scores 블록"이 없으면 점수 블록을 넣지 마세요.`, input,
-      t => { bufs[i] += t; if (i === cur) flush(); }, ac.signal, { ...meta, rid, part: i, parts: sections.length })
-      .finally(() => { done[i] = true; if (i === cur) flush(); })));
+  const sysFor = sec => `${system}\n\n[이번에 쓸 섹션]\n${sec}\n- 위 섹션 하나만, "## 제목"부터 시작해 끝까지 쓰세요. 다른 섹션(특히 "사주토끼의 한마디")은 쓰지 마세요.\n- 위 섹션 설명에 "scores 블록"이 없으면 점수 블록을 넣지 마세요.`;
+  // 섹션 하나를 쓰되, 실패하면 처음부터 한 번 더 시도한다. 그래도 안 되면 그 섹션만 안내 문구로 채운다
+  const writeSection = async i => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      bufs[i] = '';
+      try {
+        return await generate(sysFor(sections[i]), input, t => { bufs[i] += t; if (i === cur) flush(); },
+          ac.signal, { ...meta, rid, part: i, parts: sections.length });
+      } catch (e) {
+        if (ac.signal.aborted) throw e;
+        if (i < cur || (i === cur && wroteSection[i])) { // 이미 화면에 일부를 보냈으면 다시 쓸 수 없다
+          bufs[i] += '\n\n이 부분은 중간에 끊겼어요. 잠시 후 다시 풀이를 받아보세요.\n';
+          throw e;
+        }
+        console.warn(`섹션 ${i + 1} 실패${attempt ? '' : ', 다시 시도'}:`, e.message);
+      }
+    }
+    const title = sections[i].split(/\s+[(—]/)[0];
+    bufs[i] = `${title}\n이 부분은 지금 불러오지 못했어요. 잠시 후 다시 풀이를 받아보세요.\n`;
+    throw new Error('섹션 실패');
+  };
+  const results = await Promise.allSettled(sections.map((_, i) =>
+    writeSection(i).finally(() => { done[i] = true; if (i === cur) flush(); })));
   if (ac.signal.aborted) return;
   flush();
   const failed = results.filter(r => r.status === 'rejected').length;
@@ -580,7 +600,8 @@ async function streamSections(res, system, sections, input, onFail, meta = {}) {
     return res.end(wroteAny ? '' : '풀이를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
   logDone(meta, `섹션 ${sections.length - failed}/${sections.length}`, t0);
-  res.end(failed ? '' : DONE);
+  // 일부 섹션만 실패했으면 그 섹션에 안내를 넣고 나머지는 정상으로 끝낸다
+  res.end(DONE);
 }
 
 // ---------- 타로 ----------

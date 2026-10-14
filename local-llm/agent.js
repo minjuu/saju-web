@@ -79,6 +79,7 @@ const awake = spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'i
 awake.unref();
 
 let lastStatus = null;
+let failStreak = 0;
 async function register() {
   if (!tunnelUrl) return;
   try {
@@ -90,9 +91,16 @@ async function register() {
     });
     if (r.status !== lastStatus) console.log(new Date().toLocaleTimeString('ko-KR'), r.ok ? '사이트에 연결됨' : `사이트 연결 실패 (${r.status})`);
     lastStatus = r.status;
+    failStreak = 0;
   } catch (e) {
-    if (lastStatus !== 'error') console.warn(new Date().toLocaleTimeString('ko-KR'), '사이트 연결 끊김 (네트워크 확인 필요):', e.message);
+    if (lastStatus !== 'error') console.warn(new Date().toLocaleTimeString('ko-KR'), '사이트 연결 끊김:', e.cause?.code || e.cause?.message || e.message);
     lastStatus = 'error';
+    // 2분 넘게 계속 실패하면 네트워크가 돌아와도 연결이 굳어 있는 경우가 있어, 스스로 재시작한다(launchd가 다시 띄움)
+    if (++failStreak >= 6) {
+      console.warn(new Date().toLocaleTimeString('ko-KR'), '2분 넘게 연결 실패 — 연결기를 다시 시작해요');
+      tunnel.kill();
+      process.exit(1);
+    }
   }
 }
 setInterval(register, 20000); // 서버가 재배포되면 등록 정보가 사라지므로 자주 알린다

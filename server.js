@@ -295,6 +295,7 @@ async function requestGemini(system, input, signal) {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: [{ role: 'user', parts: [{ text: input }] }],
+            generationConfig: { maxOutputTokens: 32000 }, // 사주 풀이 전체를 한 번에 쓸 때 잘리지 않도록
           }),
           signal: AbortSignal.any([signal, timeout.signal]),
         },
@@ -388,7 +389,13 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
   const sections = TOPICS[topic](timeContext()).split('\n');
   if (req.body.question) sections.splice(sections.length - 1, 0, '## 질문에 대한 답변 — 이 섹션은 "### 답변" 소제목 하나만 두고, 사주 근거를 들어 질문에 직접 답하기');
   const outline = `[전체 구성 — 참고용]\n${sections.join('\n')}`;
-  await streamSections(res, `${INSTRUCTIONS}\n\n${outline}`, sections, input, () => LIMIT && refundQuota(user.id), requestMeta(req, topic));
+  const onFail = () => LIMIT && refundQuota(user.id), meta = requestMeta(req, topic);
+  if (localAlive()) {
+    await streamSections(res, `${INSTRUCTIONS}\n\n${outline}`, sections, input, onFail, meta);
+  } else {
+    // 맥이 꺼져 있으면 Gemini로 한 번에 쓴다 (섹션별로 나누면 무료 한도를 7~8배 빨리 써버린다)
+    await streamLLM(res, `${INSTRUCTIONS}\n\n[구성 — 이 순서대로 모든 섹션을 빠짐없이, 각 섹션의 "## 제목"(마지막 "## 사주토끼의 한마디" 포함)도 반드시 쓰세요]\n${sections.join('\n')}`, input, onFail, meta);
+  }
 });
 
 // ---------- 요청 기록용 정보 (개인정보 없이) ----------
@@ -509,7 +516,10 @@ function startStream(res) {
   return ac;
 }
 
-// 프롬프트 하나로 풀이 전체를 쓴다 (타로)
+// 풀이가 끝까지 정상으로 써졌다는 표시 (화면은 이걸로 중간에 끊겼는지 판단하고, 보여줄 때는 지운다)
+const DONE = '\n<!--done-->';
+
+// 프롬프트 하나로 풀이 전체를 쓴다 (타로, 맥이 꺼졌을 때의 사주)
 async function streamLLM(res, system, input, onFail, meta = {}) {
   const ac = startStream(res);
   const t0 = Date.now();
@@ -517,7 +527,7 @@ async function streamLLM(res, system, input, onFail, meta = {}) {
   try {
     const how = await generate(system, input, t => { wrote = true; res.write(t); }, ac.signal, meta);
     logDone(meta, how, t0);
-    res.end();
+    res.end(DONE);
   } catch (e) {
     if (ac.signal.aborted) return;
     console.warn('풀이 실패:', e.message);
@@ -556,7 +566,7 @@ async function streamSections(res, system, sections, input, onFail, meta = {}) {
     return res.end(wroteAny ? '' : '풀이를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
   logDone(meta, `섹션 ${sections.length - failed}/${sections.length}`, t0);
-  res.end();
+  res.end(failed ? '' : DONE);
 }
 
 // ---------- 타로 ----------

@@ -132,7 +132,7 @@
         if (done) break;
         text += dec.decode(value, { stream: true });
         stopLoading();
-        out.innerHTML = DOMPurify.sanitize(marked.parse(mdPrep(text)));
+        out.innerHTML = DOMPurify.sanitize(marked.parse(mdPrep(text.replace('<!--done-->', ''))));
         boldQuotes(out);
       }
     } catch (err) {

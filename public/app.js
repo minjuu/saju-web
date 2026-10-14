@@ -437,8 +437,11 @@ $('#form').onsubmit = async e => {
         renderReport(out, text);
       }
     } catch {} // 연결이 끊기면 아래에서 안내한다
-    // 마지막 섹션(한마디)까지 오지 않았으면 중간에 끊긴 것
-    if (!text.includes('한마디')) {
+    // 서버가 끝 표시를 보내지 않았으면 중간에 끊긴 것
+    const finished = text.includes('<!--done-->');
+    text = text.replace('<!--done-->', '');
+    if (finished) renderReport(out, text);
+    if (!finished) {
       stopLoading();
       if (text) renderReport(out, text); else out.innerHTML = '';
       out.insertAdjacentHTML('beforeend', `<div class="card cutoff"><p>풀이가 중간에 끊겼어요. 잠시 후 다시 시도해 주세요.</p>

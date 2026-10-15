@@ -61,18 +61,46 @@ const proxy = http.createServer((req, res) => {
 proxy.listen(Number(PROXY_PORT), '127.0.0.1', () => console.log(`프록시: 127.0.0.1:${PROXY_PORT} → ${OLLAMA_URL}`));
 
 let tunnelUrl = null;
-const tunnel = spawn('cloudflared', ['tunnel', '--url', `http://127.0.0.1:${PROXY_PORT}`, '--no-autoupdate'], { stdio: ['ignore', 'pipe', 'pipe'] });
-const onLog = buf => {
-  const m = String(buf).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-  if (m && m[0] !== tunnelUrl) {
-    tunnelUrl = m[0];
-    console.log('터널 주소:', tunnelUrl);
-    setTimeout(register, 3000); // 터널이 준비될 시간을 조금 준다
-  }
-};
-tunnel.stdout.on('data', onLog);
-tunnel.stderr.on('data', onLog);
-tunnel.on('exit', code => { console.error('cloudflared 종료:', code); process.exit(1); });
+let tunnel = null;
+let backoff = 60 * 1000; // 터널 생성 실패 시 다시 시도하기까지 기다리는 시간 (1분 → 최대 15분)
+const now = () => new Date().toLocaleTimeString('ko-KR');
+
+// Cloudflare 임시 터널은 짧은 시간에 너무 자주 만들면 429로 막히므로, 실패하면 점점 길게 기다렸다가 다시 만든다
+function startTunnel() {
+  tunnelUrl = null;
+  const t = spawn('cloudflared', ['tunnel', '--url', `http://127.0.0.1:${PROXY_PORT}`, '--no-autoupdate'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  tunnel = t;
+  const onLog = buf => {
+    const text = String(buf);
+    if (/status 429/.test(text)) console.warn(now(), 'Cloudflare가 터널 생성을 잠시 막았어요(429)');
+    // api.trycloudflare.com 같은 안내 주소는 제외하고 실제 터널 주소만 잡는다
+    const m = text.match(/https:\/\/(?!api\.)[a-z0-9-]+\.trycloudflare\.com/);
+    if (m && m[0] !== tunnelUrl) {
+      tunnelUrl = m[0];
+      backoff = 60 * 1000;
+      console.log(now(), '터널 주소:', tunnelUrl);
+      setTimeout(register, 3000); // 터널이 준비될 시간을 조금 준다
+    }
+  };
+  t.stdout.on('data', onLog);
+  t.stderr.on('data', onLog);
+  t.on('exit', code => {
+    if (tunnel !== t) return; // 일부러 교체한 터널
+    tunnelUrl = null;
+    console.warn(now(), `터널 종료(${code}) — ${Math.round(backoff / 60000)}분 뒤 다시 만들어요`);
+    setTimeout(startTunnel, backoff);
+    backoff = Math.min(backoff * 2, 15 * 60 * 1000);
+  });
+}
+function restartTunnel() {
+  const old = tunnel;
+  tunnel = null;
+  old?.kill();
+  setTimeout(startTunnel, backoff);
+  console.warn(now(), `${Math.round(backoff / 60000)}분 뒤 터널을 새로 만들어요`);
+  backoff = Math.min(backoff * 2, 15 * 60 * 1000);
+}
+startTunnel();
 
 // 맥북이 잠자기에 들어가면 연결이 끊겨 풀이를 못 하므로, 이 프로그램이 도는 동안은 잠자기를 막는다(화면은 꺼져도 됨)
 const awake = spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'ignore' });
@@ -95,11 +123,11 @@ async function register() {
   } catch (e) {
     if (lastStatus !== 'error') console.warn(new Date().toLocaleTimeString('ko-KR'), '사이트 연결 끊김:', e.cause?.code || e.cause?.message || e.message);
     lastStatus = 'error';
-    // 2분 넘게 계속 실패하면 네트워크가 돌아와도 연결이 굳어 있는 경우가 있어, 스스로 재시작한다(launchd가 다시 띄움)
+    // 2분 넘게 계속 실패하면 연결이 굳어 있는 경우가 있어 터널을 새로 만든다 (너무 자주 만들지 않도록 점점 길게 기다림)
     if (++failStreak >= 6) {
-      console.warn(new Date().toLocaleTimeString('ko-KR'), '2분 넘게 연결 실패 — 연결기를 다시 시작해요');
-      tunnel.kill();
-      process.exit(1);
+      console.warn(now(), '2분 넘게 연결 실패 — 터널을 새로 만들어요');
+      failStreak = 0;
+      restartTunnel();
     }
   }
 }
@@ -120,6 +148,6 @@ async function keepWarm() {
 keepWarm();
 setInterval(keepWarm, 10 * 60000);
 
-const stop = () => { tunnel.kill(); process.exit(0); };
+const stop = () => { tunnel?.kill(); process.exit(0); };
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);

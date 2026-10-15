@@ -291,7 +291,9 @@ const TOPICS = {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function requestGemini(system, input, signal) {
   let last;
-  for (const model of [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) {
+  // 한 모델이 혼잡해도 다른 가벼운 모델로 넘어가도록 여러 개를 차례로 시도한다 (중복 제거)
+  const models = [...new Set([GEMINI_MODEL, 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', GEMINI_FALLBACK_MODEL])];
+  for (const model of models) {
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt) await sleep(2000);
       // 혼잡할 때 응답 없이 멈추는 경우가 있어 20초 안에 응답이 시작되지 않으면 끊고 다음 시도로 넘어간다

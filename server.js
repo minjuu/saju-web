@@ -444,7 +444,7 @@ app.post('/api/llm/register', (req, res) => {
   const secret = req.get('x-llm-secret');
   if (!sameSecret(secret)) return res.status(403).end();
   const url = req.body?.url;
-  if (typeof url !== 'string' || !/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(url)) return res.status(400).end();
+  if (typeof url !== 'string' || !/^https:\/\/(?!api\.)[a-z0-9-]+\.trycloudflare\.com$/.test(url)) return res.status(400).end();
   if (localLLM?.url !== url) console.log('로컬 모델 연결:', url);
   localLLM = { url, secret, at: Date.now() };
   res.json({ ok: true });

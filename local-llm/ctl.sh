@@ -6,6 +6,8 @@ LOG=~/Library/Logs/saju-localllm.log
 U=gui/$(id -u)
 case "$1" in
   on)
+    # 회사 보안 프로그램(HTTPS 검사) 인증서를 Node가 믿도록 최신 목록으로 갱신
+    security find-certificate -a -p /Library/Keychains/System.keychain > "$HOME/Library/Application Support/saju-localllm/ca-extra.pem" 2>/dev/null
     for s in com.sajutokki.ollama com.sajutokki.localllm; do
       launchctl enable $U/$s; launchctl bootstrap $U $LA/$s.plist 2>/dev/null
     done

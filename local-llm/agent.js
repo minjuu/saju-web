@@ -92,14 +92,6 @@ function startTunnel() {
     backoff = Math.min(backoff * 2, 15 * 60 * 1000);
   });
 }
-function restartTunnel() {
-  const old = tunnel;
-  tunnel = null;
-  old?.kill();
-  setTimeout(startTunnel, backoff);
-  console.warn(now(), `${Math.round(backoff / 60000)}분 뒤 터널을 새로 만들어요`);
-  backoff = Math.min(backoff * 2, 15 * 60 * 1000);
-}
 startTunnel();
 
 // 맥북이 잠자기에 들어가면 연결이 끊겨 풀이를 못 하므로, 이 프로그램이 도는 동안은 잠자기를 막는다(화면은 꺼져도 됨)
@@ -121,14 +113,11 @@ async function register() {
     lastStatus = r.status;
     failStreak = 0;
   } catch (e) {
-    if (lastStatus !== 'error') console.warn(new Date().toLocaleTimeString('ko-KR'), '사이트 연결 끊김:', e.cause?.code || e.cause?.message || e.message);
+    // 사이트 등록은 맥 → Render로 직접 가는 요청이라 터널과는 상관없다. 터널을 새로 만들지 않고 계속 다시 시도만 한다
+    // (회사 보안 프로그램이 HTTPS를 가로채면 SELF_SIGNED_CERT_IN_CHAIN이 나므로 NODE_EXTRA_CA_CERTS로 회사 인증서를 믿게 해 둠)
+    const cause = e.cause?.code || e.cause?.message || e.message;
+    if (lastStatus !== 'error' || ++failStreak % 30 === 0) console.warn(now(), '사이트 연결 끊김:', cause);
     lastStatus = 'error';
-    // 2분 넘게 계속 실패하면 연결이 굳어 있는 경우가 있어 터널을 새로 만든다 (너무 자주 만들지 않도록 점점 길게 기다림)
-    if (++failStreak >= 6) {
-      console.warn(now(), '2분 넘게 연결 실패 — 터널을 새로 만들어요');
-      failStreak = 0;
-      restartTunnel();
-    }
   }
 }
 setInterval(register, 20000); // 서버가 재배포되면 등록 정보가 사라지므로 자주 알린다

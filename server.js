@@ -15,14 +15,10 @@ const {
   SUPABASE_SERVICE_ROLE_KEY,
   AUTH_PROVIDERS = 'kakao,google,email',
   DAILY_LIMIT_ENABLED = 'false', // 'true'면 로그인 필수 + 계정당 하루 1회
-  // 맥의 로컬 모델(local-llm/agent.js) 비밀 키의 SHA-256. 키 자체는 서버에 두지 않고,
-  // agent가 등록할 때 보내는 키를 이 값과 비교한 뒤 그 키로 터널에 요청한다
-  LOCAL_LLM_SECRET_SHA256 = 'f4709281f4953afc18ac1ee69295b53ebd69c9b2e098785a6ee02cfaf3614da4',
-  LOCAL_LLM_MODEL = 'gpt-oss:20b',
 } = process.env;
 const LIMIT = DAILY_LIMIT_ENABLED === 'true';
 
-if (!GEMINI_API_KEY) console.warn('GEMINI_API_KEY 미설정: 맥의 로컬 모델이 연결됐을 때만 풀이가 됩니다.');
+if (!GEMINI_API_KEY) console.warn('GEMINI_API_KEY 미설정: 사주팔자 표만 볼 수 있습니다.');
 // 서버 전용 클라이언트: 로그인 토큰 검증과 사용 기록(reading_usage) 관리에 쓴다
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
@@ -378,7 +374,7 @@ app.get('/api/quota', async (req, res) => {
 });
 
 app.post('/api/reading', async (req, res) => {
-  if ((!GEMINI_API_KEY && !localAlive()) || (LIMIT && !supabase)) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
+  if (!GEMINI_API_KEY || (LIMIT && !supabase)) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
   const user = LIMIT ? await getUser(req) : null;
   if (LIMIT && !user) return res.status(401).json({ error: '풀이는 로그인 후 볼 수 있습니다' });
   const err = validate(req.body);
@@ -404,14 +400,9 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
   if (req.body.question) sections.splice(sections.length - 1, 0, '## 질문에 대한 답변 — 이 섹션은 "### 답변" 소제목 하나만 두고, 사주 근거를 들어 질문에 직접 답하기');
   const lengthNote = topic === 'daily'
     ? '\n\n[오늘의 사주 분량 — 위 [깊이]의 문장 수 규칙보다 우선] 하루 운세라서 간략하게 써요. 각 "###"는 한 문단 2~3문장, "사주토끼의 한마디"는 2문장으로 짧고 실용적으로 쓰세요. 오늘(dailyLuck.date) 하루에만 집중하세요. "### 오늘의 키워드" 아래 본문에 키워드 3개를 굵게 쓰고 한 문장으로 설명하세요(제목에는 키워드를 넣지 마세요). "### 총평"은 일진(dailyLuck)과 원국의 관계를 근거로 쓰고, "### 행운 포인트"에는 행운의 색·숫자·좋은 시간대를 한 문단에 쓰세요.' : '';
-  const outline = `[전체 구성 — 참고용]\n${sections.join('\n')}${lengthNote}`;
-  const onFail = () => LIMIT && refundQuota(user.id), meta = requestMeta(req, topic);
-  if (localAlive() && topic !== 'daily') { // 오늘의 사주는 짧아서 한 번에 쓰는 게 더 빠르다
-    await streamSections(res, `${INSTRUCTIONS}\n\n${outline}`, sections, input, onFail, meta);
-  } else {
-    // 맥이 꺼져 있거나 짧은 풀이면 한 번에 쓴다 (섹션별로 나누면 Gemini 무료 한도를 7~8배 빨리 써버린다)
-    await streamLLM(res, `${INSTRUCTIONS}\n\n[구성 — 이 순서대로 모든 섹션을 빠짐없이, 각 섹션의 "## 제목"(마지막 "## 사주토끼의 한마디" 포함)도 반드시 쓰세요]\n${sections.join('\n')}${lengthNote}`, input, onFail, meta);
-  }
+  const onFail = () => LIMIT && refundQuota(user.id);
+  await streamLLM(res, `${INSTRUCTIONS}\n\n[구성 — 이 순서대로 모든 섹션을 빠짐없이, 각 섹션의 "## 제목"(마지막 "## 사주토끼의 한마디" 포함)도 반드시 쓰세요]\n${sections.join('\n')}${lengthNote}`,
+    input, onFail, requestMeta(req, topic));
 });
 
 // ---------- 요청 기록용 정보 (개인정보 없이) ----------
@@ -436,46 +427,6 @@ const requestMeta = (req, key, tarot) => ({
   test: /curl|node|python/i.test(req.get('user-agent') || ''),
 });
 
-// ---------- 로컬 모델 (맥의 gpt-oss) ----------
-// 맥의 agent.js가 1분마다 터널 주소를 등록한다. 3분 넘게 소식이 없으면 꺼진 것으로 본다
-let localLLM = null; // { url, secret, at }
-const EXPECTED = Buffer.from(LOCAL_LLM_SECRET_SHA256, 'hex');
-const sameSecret = v => typeof v === 'string' && v.length > 0 && EXPECTED.length === 32
-  && crypto.timingSafeEqual(crypto.createHash('sha256').update(v).digest(), EXPECTED);
-app.post('/api/llm/register', (req, res) => {
-  const secret = req.get('x-llm-secret');
-  if (!sameSecret(secret)) return res.status(403).end();
-  const url = req.body?.url;
-  if (typeof url !== 'string' || !/^https:\/\/(?!api\.)[a-z0-9-]+\.trycloudflare\.com$/.test(url)) return res.status(400).end();
-  if (localLLM?.url !== url) console.log('로컬 모델 연결:', url);
-  localLLM = { url, secret, at: Date.now() };
-  res.json({ ok: true });
-});
-const localAlive = () => localLLM && Date.now() - localLLM.at < 3 * 60 * 1000;
-
-async function requestLocal(system, input, signal, meta) {
-  // 맥에서 모델을 메모리에 올리거나 다른 풀이를 처리 중이면 시작이 늦을 수 있어 60초까지 기다린다
-  const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(), 60000);
-  try {
-    const r = await fetch(`${localLLM.url}/v1/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-llm-secret': localLLM.secret, 'x-llm-meta': encodeURIComponent(JSON.stringify(meta || {})) },
-      body: JSON.stringify({
-        model: LOCAL_LLM_MODEL,
-        stream: true,
-        reasoning_effort: 'low',
-        messages: [{ role: 'system', content: system }, { role: 'user', content: input }],
-      }),
-      signal: AbortSignal.any([signal, timeout.signal]),
-    });
-    if (!r.ok) throw new Error(`로컬 모델 ${r.status}`);
-    return r;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 // SSE 응답에서 "data: {...}" 줄을 하나씩 꺼낸다
 async function* sseEvents(body) {
   const dec = new TextDecoder();
@@ -491,36 +442,14 @@ async function* sseEvents(body) {
   }
 }
 
-// 맥의 로컬 모델 → Gemini 순서로 시도해 응답을 텍스트 스트림으로 흘려보낸다. 실패하면 onFail(횟수 복구 등)을 부른다
-// 한 번의 풀이 생성: 맥의 로컬 모델 → Gemini → 로컬 모델 재시도 순으로 시도하며 글자가 올 때마다 onText를 부른다.
-// 글을 쓰기 시작한 뒤 실패하면 그대로 오류를 던진다(중간부터 다른 모델로 이어 쓰지 않음)
-async function generate(system, input, onText, signal, meta) {
-  let wrote = false;
-  const emit = t => { if (t) { wrote = true; onText(t); } };
-  const tryLocal = async () => {
-    const r = await requestLocal(system, input, signal, meta);
-    for await (const ev of sseEvents(r.body)) emit(ev.choices?.[0]?.delta?.content);
-  };
-  const tryGemini = async () => {
-    const r = await requestGemini(system, input, signal);
-    for await (const ev of sseEvents(r.body)) {
-      for (const p of ev.candidates?.[0]?.content?.parts || []) if (!p.thought) emit(p.text);
-    }
-  };
-  const attempts = [];
-  if (localAlive()) attempts.push(['로컬', tryLocal]);
-  if (GEMINI_API_KEY) attempts.push(['Gemini', tryGemini]);
-  if (localAlive()) attempts.push(['로컬(재시도)', tryLocal]);
-  for (const [name, attempt] of attempts) {
-    try {
-      await attempt();
-      if (wrote) return name;
-    } catch (e) {
-      if (signal.aborted || wrote) throw e;
-      console.warn(`${name} 실패:`, e.message);
-    }
+// 한 번의 풀이 생성: Gemini 응답을 글자가 올 때마다 onText로 넘긴다 (모델 혼잡 시 다른 모델로 넘어가는 건 requestGemini가 처리)
+async function generate(system, input, onText, signal) {
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY 미설정');
+  const r = await requestGemini(system, input, signal);
+  for await (const ev of sseEvents(r.body)) {
+    for (const p of ev.candidates?.[0]?.content?.parts || []) if (!p.thought && p.text) onText(p.text);
   }
-  throw new Error('사용 가능한 모델 없음');
+  return 'Gemini';
 }
 
 const logDone = (meta, how, t0) => console.log(`풀이 완료: ${meta.kind || ''} ${meta.device || ''} 방문자 #${meta.visitor || '-'}${meta.test ? ' (테스트)' : ''} → ${how}, ${Math.round((Date.now() - t0) / 1000)}초`);
@@ -535,13 +464,13 @@ function startStream(res) {
 // 풀이가 끝까지 정상으로 써졌다는 표시 (화면은 이걸로 중간에 끊겼는지 판단하고, 보여줄 때는 지운다)
 const DONE = '\n<!--done-->';
 
-// 프롬프트 하나로 풀이 전체를 쓴다 (타로, 맥이 꺼졌을 때의 사주)
+// 프롬프트 하나로 풀이 전체를 쓴다
 async function streamLLM(res, system, input, onFail, meta = {}) {
   const ac = startStream(res);
   const t0 = Date.now();
   let wrote = false;
   try {
-    const how = await generate(system, input, t => { wrote = true; res.write(t); }, ac.signal, meta);
+    const how = await generate(system, input, t => { wrote = true; res.write(t); }, ac.signal);
     logDone(meta, how, t0);
     res.end(DONE);
   } catch (e) {
@@ -551,59 +480,6 @@ async function streamLLM(res, system, input, onFail, meta = {}) {
     await Promise.resolve(onFail?.()).catch(() => {});
     res.end('풀이를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
-}
-
-// 섹션마다 따로 요청해 동시에 쓰고, 화면에는 순서대로 흘려보낸다 (사주).
-// 한 번에 전체를 쓰게 하면 모델이 섹션마다 짧게 끝내므로, 섹션별로 나눠 충분한 분량을 받는다
-async function streamSections(res, system, sections, input, onFail, meta = {}) {
-  const ac = startStream(res);
-  const t0 = Date.now();
-  const bufs = sections.map(() => ''), done = sections.map(() => false);
-  let cur = 0, wroteAny = false;
-  const wroteSection = sections.map(() => false);
-  const flush = () => {
-    while (cur < sections.length) {
-      if (bufs[cur]) { res.write(bufs[cur]); bufs[cur] = ''; wroteAny = true; wroteSection[cur] = true; }
-      if (!done[cur]) return;
-      res.write('\n\n');
-      cur++;
-    }
-  };
-  const rid = crypto.randomBytes(4).toString('hex'); // 맥 쪽 기록에서 한 풀이로 묶기 위한 번호
-  const sysFor = sec => `${system}\n\n[이번에 쓸 섹션]\n${sec}\n- 위 섹션 하나만, "## 제목"부터 시작해 끝까지 쓰세요. 다른 섹션(특히 "사주토끼의 한마디")은 쓰지 마세요.\n- 위 섹션 설명에 "scores 블록"이 없으면 점수 블록을 넣지 마세요.`;
-  // 섹션 하나를 쓰되, 실패하면 처음부터 한 번 더 시도한다. 그래도 안 되면 그 섹션만 안내 문구로 채운다
-  const writeSection = async i => {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      bufs[i] = '';
-      try {
-        return await generate(sysFor(sections[i]), input, t => { bufs[i] += t; if (i === cur) flush(); },
-          ac.signal, { ...meta, rid, part: i, parts: sections.length });
-      } catch (e) {
-        if (ac.signal.aborted) throw e;
-        if (i < cur || (i === cur && wroteSection[i])) { // 이미 화면에 일부를 보냈으면 다시 쓸 수 없다
-          bufs[i] += '\n\n이 부분은 중간에 끊겼어요. 잠시 후 다시 풀이를 받아보세요.\n';
-          throw e;
-        }
-        console.warn(`섹션 ${i + 1} 실패${attempt ? '' : ', 다시 시도'}:`, e.message);
-      }
-    }
-    const title = sections[i].split(/\s+[(—]/)[0];
-    bufs[i] = `${title}\n이 부분은 지금 불러오지 못했어요. 잠시 후 다시 풀이를 받아보세요.\n`;
-    throw new Error('섹션 실패');
-  };
-  const results = await Promise.allSettled(sections.map((_, i) =>
-    writeSection(i).finally(() => { done[i] = true; if (i === cur) flush(); })));
-  if (ac.signal.aborted) return;
-  flush();
-  const failed = results.filter(r => r.status === 'rejected').length;
-  if (failed === sections.length) {
-    console.warn('풀이 실패:', results[0].reason?.message);
-    await Promise.resolve(onFail?.()).catch(() => {});
-    return res.end(wroteAny ? '' : '풀이를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
-  }
-  logDone(meta, `섹션 ${sections.length - failed}/${sections.length}`, t0);
-  // 일부 섹션만 실패했으면 그 섹션에 안내를 넣고 나머지는 정상으로 끝낸다
-  res.end(DONE);
 }
 
 // ---------- 타로 ----------
@@ -655,7 +531,7 @@ const TAROT_INSTRUCTIONS = `당신은 상담 경험이 많은 한국 타로 상�
 - 과장된 칭찬과 감성적 수사는 쓰지 마세요. 마크다운으로 작성하세요.`;
 
 app.post('/api/tarot', async (req, res) => {
-  if (!GEMINI_API_KEY && !localAlive()) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
+  if (!GEMINI_API_KEY) return res.status(503).json({ error: '지금은 풀이를 볼 수 없습니다. 서버 설정을 확인하세요.' });
   const { spread, question, cards } = req.body || {};
   const sp = SPREADS[spread];
   if (!sp) return res.status(400).json({ error: '알 수 없는 타로 종류입니다' });

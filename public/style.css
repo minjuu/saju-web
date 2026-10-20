@@ -363,3 +363,8 @@ footer { color: #8b95a1; }
 .primary:hover, .slide .cta:hover { background: #7e89e8; }
 .rp-tabs button.on { background: #eceefd; color: var(--accent-deep); box-shadow: none; }
 .rp-body strong, .rp-body h3, .row-txt em.soft, .score-top em, .info { color: var(--accent-deep); }
+/* 제목·설명·강조 글자는 검은색으로 */
+.rp-body strong, .rp-body h3, .rp-body h2, .rp-section h2, .score-top em { color: var(--ink); }
+.rp-body h3 { background: #f2f4f6; }
+.rp-letter { background: #fff8ec; }
+.rp-letter strong { color: var(--ink); }

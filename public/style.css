@@ -380,3 +380,7 @@ footer { color: #8b95a1; }
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 @media (max-width: 560px) { .wordmark { font-size: 21px; } }
+/* 버튼: 조금 더 진한 라벤더 + 흰 글자 */
+.primary, .slide .cta { background: #8a76f0; color: #fff; }
+.primary:hover, .slide .cta:hover { background: #7d68ec; }
+.primary:disabled { background: #c3b8f8; color: #fff; }

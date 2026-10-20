@@ -49,12 +49,12 @@ nav .who { color: var(--ink); max-width: 140px; overflow: hidden; text-overflow:
 .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .topic-card { position: relative; display: flex; flex-direction: column; padding: 20px; border-radius: 18px; background: var(--tone); border: 1px solid #0000000a; transition: transform .2s, box-shadow .2s; min-height: 190px; }
 .topic-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px #26231f14; }
-.topic-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: auto; }
+.topic-top { display: flex; align-items: center; justify-content: space-between; }
 .topic-glyph { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-size: 24px; font-weight: 700; background: #fffdf9b3; color: var(--deep); }
 .topic-top em { font-style: normal; font-size: 12px; font-weight: 600; color: var(--deep); border: 1px solid currentColor; padding: 2px 9px; border-radius: 999px; }
 .topic-card b { margin-top: 22px; font-size: 18px; letter-spacing: -0.4px; }
 .topic-card p { margin: 4px 0 0; font-size: 14px; color: #26231fa6; }
-.topic-card .go { margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--deep); }
+.topic-card .go { margin-top: auto; padding-top: 12px; font-size: 13px; font-weight: 600; color: var(--deep); }
 .c1 { --tone: #ead9c4; --deep: #7a4f2c; }
 .c2 { --tone: #dcdcef; --deep: #4a4a8a; }
 .c3 { --tone: #f0d6d3; --deep: #9a4a45; }

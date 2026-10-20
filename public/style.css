@@ -368,3 +368,8 @@ footer { color: #8b95a1; }
 .rp-body h3 { background: #f2f4f6; }
 .rp-letter { background: #fff8ec; }
 .rp-letter strong { color: var(--ink); }
+/* 버튼: 연한 라벤더 배경 + 진한 보라 글자 */
+.primary, .slide .cta { background: #e6defe; color: #5a3fd0; box-shadow: none; }
+.primary:hover, .slide .cta:hover { background: #dcd1fd; }
+.primary:disabled { background: #efeafe; color: #9a8ae0; }
+.rp-tabs button.on { background: #ece6fe; color: #5a3fd0; }

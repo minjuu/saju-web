@@ -347,3 +347,13 @@ footer { color: #8b95a1; }
   .row-ico { width: 32px; height: 32px; font-size: 24px; }
 }
 @media (max-width: 560px) { .slide p { padding-right: 76px; } }
+/* 모바일 배너: 토끼를 글자와 겹치지 않는 오른쪽 아래로 */
+@media (max-width: 560px) {
+  .hero-rabbit { top: auto; bottom: 14px; right: 14px; width: 62px; height: 62px; }
+  .slide h2, .slide p { padding-right: 0; }
+  .hero::after { display: none; }
+}
+/* PC에서도 앱처럼 가운데 760px 폭으로 */
+#view-home { max-width: 760px; margin: 0 auto; }
+#view-reading, #view-tarot { max-width: 760px; }
+.top-inner { max-width: 760px; }

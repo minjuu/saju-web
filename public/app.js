@@ -5,12 +5,12 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const YEAR = new Date().getFullYear();
 const NEW_YEAR = new Date().getMonth() >= 9 ? YEAR + 1 : YEAR; // 10월부터는 다음 해 신년 운세
 const TOPICS = {
-  total: { mark: '命', title: '평생 사주', desc: '타고난 성격부터 일, 돈, 사랑, 앞으로의 흐름까지 한 번에 알아봐요!', color: 'c1', badge: '가장 많이 봐요' },
-  year: { mark: '年', title: `${NEW_YEAR} 신년 운세`, desc: `${NEW_YEAR}년에 어떤 일이 기다리고 있을지 계절별로 미리 알아봐요!`, color: 'c2' },
-  daily: { mark: '日', title: '오늘의 사주', desc: '오늘 하루 나의 흐름을 사주로 알아봐요!', color: 'c5', badge: 'NEW' },
-  love: { mark: '緣', title: '연애운', desc: '나의 연애 스타일과 잘 맞는 사람, 올해 찾아올 인연을 알아봐요!', color: 'c3' },
-  marriage: { mark: '婚', title: '결혼운', desc: '배우자 인연과 결혼 시기, 자녀운까지 알아봐요!', color: 'c8', badge: 'NEW' },
-  wealth: { mark: '財', title: '재물운', desc: '오늘의 재물운과 이번 주 행운 번호까지 알아봐요!', color: 'c4', badge: 'NEW' },
+  total: { mark: '🔮', title: '평생 사주', desc: '타고난 성격부터 일, 돈, 사랑, 앞으로의 흐름까지 한 번에 알아봐요!', color: 'c1', badge: '가장 많이 봐요' },
+  year: { mark: '🎊', title: `${NEW_YEAR} 신년 운세`, desc: `${NEW_YEAR}년에 어떤 일이 기다리고 있을지 계절별로 미리 알아봐요!`, color: 'c2' },
+  daily: { mark: '☀️', title: '오늘의 사주', desc: '오늘 하루 나의 흐름을 사주로 알아봐요!', color: 'c5', badge: 'NEW' },
+  love: { mark: '💞', title: '연애운', desc: '나의 연애 스타일과 잘 맞는 사람, 올해 찾아올 인연을 알아봐요!', color: 'c3' },
+  marriage: { mark: '💍', title: '결혼운', desc: '배우자 인연과 결혼 시기, 자녀운까지 알아봐요!', color: 'c8', badge: 'NEW' },
+  wealth: { mark: '💰', title: '재물운', desc: '오늘의 재물운과 이번 주 행운 번호까지 알아봐요!', color: 'c4', badge: 'NEW' },
 };
 const SLIDES = [
   { title: '어떤 운세가 궁금하세요?', sub: '타고난 성격부터 올해의 흐름까지 알려드려요', topic: 'total', bg: 'b1' },

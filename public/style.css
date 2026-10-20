@@ -280,3 +280,70 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 /* 카드 아이콘을 이모지로 */
 .topic-glyph { font-size: 24px; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
 .topic-mark { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
+
+/* ============================================================
+   2026 리디자인 — 요즘 앱 스타일 (밝은 회색 배경 + 흰 카드 + 굵은 타이포 + 리스트)
+   ============================================================ */
+:root {
+  --bg: #f2f4f6; --card: #ffffff; --ink: #191f28; --muted: #6b7684; --line: #e5e8eb; --field: #f9fafb;
+  --accent: #4f5cf0; --accent-ink: #ffffff;
+}
+body { letter-spacing: -0.2px; }
+.top { background: color-mix(in srgb, var(--bg) 88%, transparent); }
+.logo { font-weight: 800; }
+
+/* 배너: 밝은 파스텔 그라데이션 */
+.hero { background: linear-gradient(135deg, #e9edff 0%, #f6ecff 55%, #ffeef3 100%); color: var(--ink); border-radius: 24px; padding: 32px 28px; }
+.hero::after { color: #4f5cf00d; }
+.slide h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.8px; }
+.slide p { opacity: 1; color: var(--muted); }
+.slide .cta { background: var(--accent); color: #fff; padding: 10px 18px; font-weight: 700; }
+.hero-ctrl button { border-color: #191f2822; color: var(--ink); }
+.hero-ctrl button:hover { background: #191f280d; }
+
+/* 사주 / 타로 탭 (세그먼트) */
+.home-tabs { display: flex; gap: 4px; margin: 28px 0 6px; padding: 4px; background: #e8ebef; border-radius: 14px; }
+.home-tabs button {
+  flex: 1; padding: 11px 0; border: 0; border-radius: 11px; background: none; color: var(--muted);
+  font-size: 16px; font-weight: 700; cursor: pointer; transition: background .15s, color .15s;
+}
+.home-tabs button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 4px #0000000f; }
+.pane-sub { margin: 14px 4px 10px; font-size: 14px; color: var(--muted); }
+
+/* 리스트 행 */
+.list { background: var(--card); border-radius: 20px; padding: 6px; box-shadow: 0 1px 2px #0000000a; }
+.row { display: flex; align-items: center; gap: 14px; padding: 14px 12px; border-radius: 14px; transition: background .12s; }
+.row:hover, .row:active { background: #f2f4f6; }
+.row-ico { flex: none; width: 36px; height: 36px; display: grid; place-items: center; font-size: 26px; background: transparent;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
+.row-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.row-txt b { font-size: 16.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.row-txt small { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+.row-txt em { font-style: normal; font-size: 11px; font-weight: 700; color: #fff; background: #f04452; padding: 2px 7px; border-radius: 999px; }
+.row-txt em.soft { color: var(--accent); background: #4f5cf014; }
+.chev { flex: none; font-size: 24px; line-height: 1; color: #b0b8c1; }
+
+/* 카드·버튼·입력 */
+.card { border: 0; border-radius: 20px; box-shadow: 0 1px 2px #0000000a; }
+.primary { border-radius: 14px; padding: 15px; font-size: 16px; font-weight: 700; }
+input, textarea { border-radius: 12px; border-color: var(--line); }
+.seg { border-radius: 12px; background: #f2f4f6; border-color: transparent; }
+.seg label { border-radius: 9px; }
+.seg label:has(input:checked) { background: #fff; color: var(--ink); font-weight: 700; box-shadow: 0 1px 4px #0000000f; }
+.topic-mark { background: transparent !important; font-size: 34px; width: 48px; height: 48px; }
+.reading-head h1 { font-weight: 800; letter-spacing: -0.6px; }
+.rp-tabs { background: var(--bg); }
+.rp-tabs button { border: 0; background: #fff; font-weight: 600; box-shadow: 0 1px 2px #0000000a; }
+.rp-tabs button.on { background: var(--ink); color: #fff; }
+.rp-body h3 { background: #4f5cf012; color: var(--accent); }
+.rp-letter { background: #fff7e8; }
+.ghost-btn { border: 0; background: #e8ebef; font-weight: 600; border-radius: 14px; }
+footer { color: #8b95a1; }
+
+@media (max-width: 560px) {
+  .hero { padding: 24px 20px; border-radius: 20px; }
+  .slide h2 { font-size: 22px; }
+  .row { padding: 13px 10px; gap: 12px; }
+  .row-ico { width: 32px; height: 32px; font-size: 24px; }
+}
+@media (max-width: 560px) { .slide p { padding-right: 76px; } }

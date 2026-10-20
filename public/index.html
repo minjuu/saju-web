@@ -35,11 +35,18 @@
       <img class="hero-rabbit" src="/rabbit.png" alt="">
     </div>
 
-    <div class="section-head"><h2>무엇이 궁금하세요?</h2><span>생년월일시만 입력하면 알 수 있어요!</span></div>
-    <div class="cards" id="cards"></div>
-
-    <div class="section-head"><h2>타로</h2><span>카드를 직접 골라 뽑아 보세요!</span></div>
-    <div class="cards" id="tarotCards"></div>
+    <div class="home-tabs" role="tablist">
+      <button type="button" role="tab" data-tab="saju" class="on">사주</button>
+      <button type="button" role="tab" data-tab="tarot">타로</button>
+    </div>
+    <div class="tab-pane" id="pane-saju">
+      <p class="pane-sub">생년월일시만 입력하면 알 수 있어요</p>
+      <div class="list" id="cards"></div>
+    </div>
+    <div class="tab-pane hidden" id="pane-tarot">
+      <p class="pane-sub">카드를 직접 골라 뽑아 보세요</p>
+      <div class="list" id="tarotCards"></div>
+    </div>
 
     <div class="notice hidden">
       <b>이용 안내</b>

@@ -18,13 +18,21 @@ const SLIDES = [
   { title: '하루 한 번 무료 풀이', sub: '로그인하면 하루 한 번 무료로 볼 수 있어요', topic: 'total', bg: 'b3' },
 ];
 
-$('#cards').innerHTML = Object.entries(TOPICS).map(([key, t], i) => `
-  <a class="topic-card ${t.color}${i === 0 ? ' featured' : ''}" href="#/saju/${key}" data-mark="${t.mark}">
-    <div class="topic-top"><span class="topic-glyph">${t.mark}</span>${t.badge ? `<em>${t.badge}</em>` : ''}</div>
-    <b>${t.title}</b>
-    <p>${t.desc}</p>
-    <span class="go">보기 →</span>
+$('#cards').innerHTML = Object.entries(TOPICS).map(([key, t]) => `
+  <a class="row ${t.color}" href="#/saju/${key}">
+    <span class="row-ico">${t.mark}</span>
+    <span class="row-txt"><b>${t.title}${t.badge ? `<em>${t.badge}</em>` : ''}</b><small>${t.desc}</small></span>
+    <span class="chev" aria-hidden="true">›</span>
   </a>`).join('');
+
+// 홈 탭 (사주 / 타로). 고른 탭은 이 브라우저에서 기억한다
+function showTab(name) {
+  document.querySelectorAll('.home-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('hidden', p.id !== `pane-${name}`));
+  try { sessionStorage.setItem('homeTab', name); } catch {}
+}
+document.querySelector('.home-tabs').onclick = e => { const b = e.target.closest('button'); if (b) showTab(b.dataset.tab); };
+try { const saved = sessionStorage.getItem('homeTab'); if (saved) showTab(saved); } catch {}
 
 $('#slides').innerHTML = SLIDES.map(s => `
   <a class="slide" href="#/saju/${s.topic}"><h2>${s.title}</h2><p>${s.sub}</p><span class="cta">풀이 보기</span></a>`).join('');

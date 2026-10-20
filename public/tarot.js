@@ -27,9 +27,10 @@
 
   const $ = s => document.querySelector(s);
   $('#tarotCards').innerHTML = Object.entries(SPREADS).map(([key, t]) => `
-    <a class="topic-card ${t.color}" href="#/tarot/${key}">
-      <div class="topic-top"><span class="topic-glyph">${t.mark}</span><em>${t.positions.length}장</em></div>
-      <b>${t.title}</b><p>${t.desc}</p><span class="go">뽑기 →</span>
+    <a class="row ${t.color}" href="#/tarot/${key}">
+      <span class="row-ico">${t.mark}</span>
+      <span class="row-txt"><b>${t.title}<em class="soft">${t.positions.length}장</em></b><small>${t.desc}</small></span>
+      <span class="chev" aria-hidden="true">›</span>
     </a>`).join('');
 
   let spread, picked, shown, busy = false, justPicked = -1;

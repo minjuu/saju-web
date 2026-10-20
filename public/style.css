@@ -384,3 +384,10 @@ footer { color: #8b95a1; }
 .primary, .slide .cta { background: #8a76f0; color: #fff; }
 .primary:hover, .slide .cta:hover { background: #7d68ec; }
 .primary:disabled { background: #c3b8f8; color: #fff; }
+/* 흑백 버튼 + 검정 로고 */
+.primary, .slide .cta { background: #191f28; color: #fff; }
+.primary:hover, .slide .cta:hover { background: #333d4b; }
+.primary:disabled { background: #b0b8c1; color: #fff; }
+.rp-tabs button.on { background: #191f28; color: #fff; }
+.pill { background: #191f28; color: #fff; }
+.wordmark { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: #191f28; }

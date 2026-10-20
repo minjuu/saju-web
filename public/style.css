@@ -373,3 +373,10 @@ footer { color: #8b95a1; }
 .primary:hover, .slide .cta:hover { background: #dcd1fd; }
 .primary:disabled { background: #efeafe; color: #9a8ae0; }
 .rp-tabs button.on { background: #ece6fe; color: #5a3fd0; }
+/* 글자 로고: 굵고 촘촘한 워드마크 + 라벤더 그라데이션 */
+.wordmark {
+  font-size: 22px; font-weight: 900; letter-spacing: -1.4px; line-height: 1;
+  background: linear-gradient(100deg, #5a3fd0 0%, #8b5cf6 50%, #d16ba5 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+@media (max-width: 560px) { .wordmark { font-size: 21px; } }

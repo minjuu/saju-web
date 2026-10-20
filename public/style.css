@@ -262,3 +262,17 @@ input[type="date"]::-webkit-date-and-time-value, input[type="time"]::-webkit-dat
 }
 
 @media (max-width: 850px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+
+/* 사주 카드 6개: PC 3칸 × 2줄 */
+#cards { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 850px) { #cards { grid-template-columns: repeat(2, 1fr); } }
+.c8 { --tone: #f3dfe6; --deep: #8a4560; }
+
+/* 이번 주 행운 번호 */
+.lotto-date { margin: -8px 0 14px; font-size: 13px; color: var(--muted); }
+.lotto { display: flex; gap: 8px; flex-wrap: wrap; }
+.ball { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 17px; color: #fff; box-shadow: inset -3px -4px 8px #0002; }
+.ball.b1 { background: #e8b23a; } .ball.b2 { background: #4f86c6; } .ball.b3 { background: #d9534f; }
+.ball.b4 { background: #8a8c94; } .ball.b5 { background: #5fa86b; }
+.lotto-note { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 560px) { .ball { width: 38px; height: 38px; font-size: 15px; } }

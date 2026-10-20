@@ -142,10 +142,10 @@ function computeSaju({ calendar, year, month, day, hour, minute, timeUnknown, le
   };
   const c = timeContext();
   // 세운: 신년 운세는 그 해, 나머지는 올해부터 3년
-  const luckYears = opts.newYear ? [c.newYear] : [c.ty, c.ty + 1, c.ty + 2];
+  const luckYears = opts.newYear ? [c.newYear] : Array.from({ length: opts.years || 3 }, (_, i) => c.ty + i);
   const yearlyLuck = luckYears.map((y, i) => {
     const gz = yearGanZhi(y);
-    return { year: opts.newYear ? `${y}년` : c.years[i], ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
+    return { year: opts.newYear ? `${y}년` : (c.years[i] || `${y}년`), ganZhi: describe(gz), relations: incomingRelations(pillars, gz[1]) };
   });
   // 월운(절기 기준, 양력 15일): 신년 운세는 그 해 1~12월, 나머지는 이번 달부터 12개월
   const monthlyLuck = Array.from({ length: 12 }, (_, i) => {
@@ -278,6 +278,21 @@ const TOPICS = {
 ## ${c.newYear}년 운 점수 (scores 블록, 항목: 총운, 재물운, 직업운, 연애운, 건강운, 대인운)
 ## 주의할 시기 (### 조심할 달 / ### 이렇게 보내세요)
 ## 사주토끼의 한마디`,
+  marriage: c => {
+    const ys = Array.from({ length: 5 }, (_, i) => `${c.ty + i}년`);
+    return `## 결혼 성향 (### 나의 결혼관 / ### 배우자에게 바라는 것)
+## 배우자 인연 (### 인연이 깊은 사람 — 성격과 직업 분위기 / ### 배우자의 외모와 분위기 — 키·인상·옷차림 같은 구체적인 이미지 / ### 만나는 경로 — 소개, 직장, 모임 등)
+## 결혼 시기 (### 결혼 운이 좋은 시기 — 앞으로 5년(세운 데이터) 중 언제가 유리한지 / ### 결혼 전에 챙길 것 / 섹션 맨 끝에 scores 블록, 항목: ${ys.join(', ')} — 연도별 결혼운 점수)
+## 자녀운 (### 자녀 인연 — 아이 수는 "한두 명 정도로 읽혀요"처럼 경향으로만 말하기 / ### 부모로서의 모습)
+## 결혼 생활 (### 잘 맞는 부부의 모습 / ### 결혼 후 조심할 점)
+## 결혼 능력치 (scores 블록, 항목: 배려심, 책임감, 대화력, 경제 감각, 갈등 해결, 가정 중심)
+## 사주토끼의 한마디`;
+  },
+  wealth: c => `## 오늘의 재물운 (### 오늘 돈의 흐름 — 오늘 들어오는 기운(dailyLuck)을 근거로 / ### 오늘 조심할 지출 / ### 오늘 해보면 좋은 일)
+## 타고난 재물 성향 (### 돈을 버는 방식 / ### 돈을 쓰는 습관 / ### 돈을 모으는 법)
+## 앞으로 1년의 재물 흐름 (${c.periods.map(p => `### ${p}`).join(' / ')} — 월운 데이터를 근거로 / 섹션 맨 끝에 scores 블록, 항목: ${c.periods.join(', ')} — 구간별 재물운 점수)
+## 재물 점수 (scores 블록, 항목: 오늘 재물운, 수입운, 저축운, 지출 관리, 재테크 감각, 횡재운)
+## 사주토끼의 한마디`,
   daily: c => `## 오늘 한눈에 (### 오늘의 키워드 / ### 총평)
 ## 분야별 오늘 (### 일 / ### 돈 / ### 연애 / ### 사람)
 ## 오늘의 운 점수 (scores 블록, 항목: 총운, 재물운, 일운, 연애운, 건강운, 대인운)
@@ -391,7 +406,7 @@ app.post('/api/reading', async (req, res) => {
   const topic = req.body.topic || 'total';
 
   let saju;
-  try { saju = computeSaju(req.body, { newYear: topic === 'year', daily: topic === 'daily' }); } catch { return res.status(400).json({ error: '존재하지 않는 날짜입니다' }); }
+  try { saju = computeSaju(req.body, { newYear: topic === 'year', daily: topic === 'daily' || topic === 'wealth', years: topic === 'marriage' ? 5 : 3 }); } catch { return res.status(400).json({ error: '존재하지 않는 날짜입니다' }); }
   if (LIMIT) try {
     if (!(await claimQuota(user.id))) return res.status(429).json({ error: '풀이는 계정당 하루 한 번만 볼 수 있습니다. 내일 다시 이용해 주세요.' });
   } catch (e) {
@@ -407,10 +422,14 @@ ${req.body.question ? `\n사용자 질문: ${req.body.question}` : ''}`;
 
   const sections = TOPICS[topic](timeContext()).split('\n');
   if (req.body.question) sections.splice(sections.length - 1, 0, '## 질문에 대한 답변 — 이 섹션은 "### 답변" 소제목 하나만 두고, 사주 근거를 들어 질문에 직접 답하기');
+  const topicNote = {
+    marriage: '\n\n[결혼운 주의] 결혼 시기·자녀 수·배우자 외모는 사주에서 읽히는 경향으로만 말하고 단정하지 마세요("~일 가능성이 커요"). 결혼을 하지 않는 선택도 존중하는 말투로 쓰세요.',
+    wealth: '\n\n[재물운 주의] 특정 종목·코인·부동산 매수 같은 투자 조언은 하지 말고, 지출 관리·저축·수입을 늘리는 현실적인 행동으로 조언하세요. 로또나 도박을 권하지 마세요.',
+  }[topic] || '';
   const lengthNote = topic === 'daily'
     ? '\n\n[오늘의 사주 분량 — 위 [깊이]의 문장 수 규칙보다 우선] 하루 운세라서 간략하게 써요. 각 "###"는 한 문단 2~3문장, "사주토끼의 한마디"는 2문장으로 짧고 실용적으로 쓰세요. 오늘(dailyLuck.date) 하루에만 집중하세요. "### 오늘의 키워드" 아래 본문에 키워드 3개를 굵게 쓰고 한 문장으로 설명하세요(제목에는 키워드를 넣지 마세요). "### 총평"은 오늘 들어오는 기운(dailyLuck)과 타고난 기운의 관계를 근거로 쓰고, "### 행운 포인트"에는 집중이 잘 되는 시간대와 오늘 하면 좋은 일 하나, 피하면 좋은 일 하나를 현실적으로 쓰세요.' : '';
   const onFail = () => LIMIT && refundQuota(user.id);
-  await streamLLM(res, `${INSTRUCTIONS}\n\n[구성 — 이 순서대로 모든 섹션을 빠짐없이, 각 섹션의 "## 제목"(마지막 "## 사주토끼의 한마디" 포함)도 반드시 쓰세요]\n${sections.join('\n')}${lengthNote}`,
+  await streamLLM(res, `${INSTRUCTIONS}\n\n[구성 — 이 순서대로 모든 섹션을 빠짐없이, 각 섹션의 "## 제목"(마지막 "## 사주토끼의 한마디" 포함)도 반드시 쓰세요]\n${sections.join('\n')}${lengthNote}${topicNote}`,
     input, onFail, requestMeta(req, topic));
 });
 
@@ -428,7 +447,7 @@ function deviceOf(ua = '') {
     : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox/.test(ua) ? 'Firefox' : '기타';
   return `${os}·${br}`;
 }
-const KIND = { total: '평생 사주', year: '신년 운세', love: '연애운', daily: '오늘의 사주', today: '오늘의 타로', worry: '고민 타로', one: '질문 타로' };
+const KIND = { total: '평생 사주', year: '신년 운세', love: '연애운', marriage: '결혼운', wealth: '재물운', daily: '오늘의 사주', today: '오늘의 타로', worry: '고민 타로', one: '질문 타로' };
 const requestMeta = (req, key, tarot) => ({
   kind: tarot && key === 'love' ? '연애 타로' : KIND[key] || key,
   device: deviceOf(req.get('user-agent')),

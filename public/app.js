@@ -9,6 +9,8 @@ const TOPICS = {
   year: { mark: '年', title: `${NEW_YEAR} 신년 운세`, desc: `${NEW_YEAR}년에 어떤 일이 기다리고 있을지 계절별로 미리 알아봐요!`, color: 'c2' },
   daily: { mark: '日', title: '오늘의 사주', desc: '오늘 하루 나의 흐름을 사주로 알아봐요!', color: 'c5', badge: 'NEW' },
   love: { mark: '緣', title: '연애운', desc: '나의 연애 스타일과 잘 맞는 사람, 올해 찾아올 인연을 알아봐요!', color: 'c3' },
+  marriage: { mark: '婚', title: '결혼운', desc: '배우자 인연과 결혼 시기, 자녀운까지 알아봐요!', color: 'c8', badge: 'NEW' },
+  wealth: { mark: '財', title: '재물운', desc: '오늘의 재물운과 이번 주 행운 번호까지 알아봐요!', color: 'c4', badge: 'NEW' },
 };
 const SLIDES = [
   { title: '어떤 운세가 궁금하세요?', sub: '타고난 성격부터 올해의 흐름까지 알려드려요', topic: 'total', bg: 'b1' },
@@ -216,6 +218,32 @@ window.mdPrep = text => text.split(/(```[\s\S]*?(?:```|$))/).map((part, i) => i 
   .replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
   .replace(/~/g, '&#126;')).join(''); // "1~3월 … 4~6월"이 취소선(~~)으로 바뀌지 않게
 
+// ---------- 이번 주 행운 번호 (재물운) ----------
+// 재미용 번호. 생년월일시와 이번 주 추첨일(토요일)로 시드를 만들어, 같은 사람은 한 주 동안 같은 번호가 나온다
+function lottoNumbers(seedText) {
+  let h = 1779033703 ^ seedText.length;
+  for (let i = 0; i < seedText.length; i++) { h = Math.imul(h ^ seedText.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+  let t = h >>> 0;
+  const rand = () => { t += 0x6D2B79F5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+  const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, 6).sort((x, y) => x - y);
+}
+function renderLotto(body) {
+  document.getElementById('lottoCard')?.remove();
+  if (topic !== 'wealth') return;
+  const now = new Date();
+  const draw = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ((6 - now.getDay() + 7) % 7)); // 이번 주 토요일
+  const nums = lottoNumbers(`${body.year}-${body.month}-${body.day}-${body.timeUnknown ? 'x' : body.hour}-${draw.toDateString()}`);
+  const band = n => n <= 10 ? 'b1' : n <= 20 ? 'b2' : n <= 30 ? 'b3' : n <= 40 ? 'b4' : 'b5';
+  $('#chart').insertAdjacentHTML('afterend', `<section class="card" id="lottoCard">
+    <h2>🎱 이번 주 행운 번호</h2>
+    <p class="lotto-date">${draw.getMonth() + 1}월 ${draw.getDate()}일(토) 추첨 기준</p>
+    <div class="lotto">${nums.map(n => `<span class="ball ${band(n)}">${n}</span>`).join('')}</div>
+    <p class="lotto-note">재미로 보는 번호예요. 당첨과는 관계가 없으니 가볍게만 참고해 주세요.</p>
+  </section>`);
+}
+
 // ---------- 풀이 리포트 ----------
 // 서버(모델)는 "## 섹션 / ### 소제목 / ```scores``` 블록" 형식의 마크다운을 스트리밍한다.
 // 이를 섹션 탭 + 섹션 카드 + 라벨 + 능력치 차트로 바꿔 그린다. 글자가 올 때마다 다시 그린다
@@ -258,7 +286,7 @@ const EMOJI = [
   ['사랑과 관계', '💞'], ['앞으로', '🧭'], ['한눈에', '✨'], ['계절별', '🗓️'], ['분야별', '🧩'], ['주의할 시기', '⚠️'],
   ['봄', '🌸'], ['여름', '☀️'], ['가을', '🍂'], ['겨울', '❄️'], ['핵심', '💎'], ['솔로', '💫'], ['연애 중', '💑'],
   ['매력', '✨'], ['조심', '⚠️'], ['약점', '⚠️'], ['강점', '💪'], ['스타일', '💗'], ['바꾸는 방법', '🛠️'],
-  ['돈', '💰'], ['일', '💼'], ['건강', '🌿'], ['키워드', '🔑'], ['연애', '💗'], ['행운', '🍀'], ['오늘', '☀️'], ['년', '📅'],
+  ['돈', '💰'], ['일', '💼'], ['건강', '🌿'], ['키워드', '🔑'], ['연애', '💗'], ['결혼', '💍'], ['자녀', '👶'], ['부부', '🏡'], ['재물', '💰'], ['행운', '🍀'], ['오늘', '☀️'], ['년', '📅'],
 ];
 const emojiFor = t => EMOJI.find(([k]) => t.includes(k))?.[1] || '';
 let reportTab = 0;
@@ -272,7 +300,7 @@ function renderReport(out, text) {
     h.textContent = h.textContent
       .replace(/\s*\([^)]*#.*$/, '')     // "(### 답변 …" 같은 구성 안내
       .replace(/\s*#+\s.*$/, '')          // 제목 안에 남은 "### …"
-      .split(/\s+[—–-]\s+/)[0].replace(/\*\*/g, '').trim();
+      .split(/\s+[—–-]\s+/)[0].replace(/\*\*/g, '').replace(/[\u0590-\u08FF\u0E00-\u0E7F]/g, '').trim(); // 가끔 섞이는 엉뚱한 문자 제거
   });
   tmp.querySelectorAll('pre > code.language-scores').forEach(code => {
     const items = parseScores(code.textContent);
@@ -413,6 +441,7 @@ $('#form').onsubmit = async e => {
     const s = await r.json();
     if (!r.ok) throw new Error(s.error);
     renderChart(s);
+    renderLotto(body);
     if (dailyLimit && !user) { $('#loginCta').classList.remove('hidden'); return; }
     if (dailyLimit && usedToday) return;
 

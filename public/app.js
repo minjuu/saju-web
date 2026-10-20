@@ -52,6 +52,7 @@ showSlide(0);
 // ---------- 라우팅 ----------
 let topic = 'total';
 function route() {
+  document.getElementById("lottoCard")?.remove();
   const [, page, arg] = location.hash.split('/');
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
   if (page === 'saju' && TOPICS[arg]) {

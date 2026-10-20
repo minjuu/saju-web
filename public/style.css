@@ -357,3 +357,9 @@ footer { color: #8b95a1; }
 #view-home { max-width: 760px; margin: 0 auto; }
 #view-reading, #view-tarot { max-width: 760px; }
 .top-inner { max-width: 760px; }
+/* 버튼 색 부드럽게 */
+:root { --accent: #8a94ec; --accent-deep: #5f6ad8; }
+.primary, .slide .cta { background: #8a94ec; color: #fff; box-shadow: 0 4px 12px #8a94ec33; }
+.primary:hover, .slide .cta:hover { background: #7e89e8; }
+.rp-tabs button.on { background: #eceefd; color: var(--accent-deep); box-shadow: none; }
+.rp-body strong, .rp-body h3, .row-txt em.soft, .score-top em, .info { color: var(--accent-deep); }
